@@ -1,0 +1,4 @@
+digraph R { rankdir=LR; node[shape=circle,fontname=Helvetica,width=0.9];
+ IDLE->START[label="rx_s=0 (wake)"]; START->IDLE[label="line high at\nmid-start (glitch)"]; START->DATA[label="still low\nat tick 8"];
+ DATA->DATA[label="sample @ mid"]; DATA->PAR[label="parity on"]; DATA->STOP[label="no parity"]; PAR->STOP;
+ STOP->IDLE[label="stop=1: rx_valid\n(+parity_err)"]; STOP->BREAK[label="stop=0: frame_err"]; BREAK->IDLE[label="line back high"]; }

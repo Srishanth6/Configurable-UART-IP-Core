@@ -1,0 +1,4 @@
+digraph T { rankdir=LR; node[shape=circle,fontname=Helvetica,width=0.9];
+ IDLE->START[label="tx_start"]; START->DATA[label="16 ticks"]; DATA->DATA[label="bit<7"];
+ DATA->PAR[label="8 bits & parity on"]; DATA->STOP[label="8 bits & no parity"]; PAR->STOP[label="16 ticks"];
+ STOP->IDLE[label="16 ticks / tx_done"]; }

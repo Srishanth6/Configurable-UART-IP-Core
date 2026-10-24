@@ -1,0 +1,8 @@
+VCD info: dumpfile waves/tb_baud.vcd opened for output.
+divisor=4 : last measured tick period = 4 clocks (expected 4), 50 periods checked
+divisor=27 : last measured tick period = 27 clocks (expected 27), 50 periods checked
+divisor=163 : last measured tick period = 163 clocks (expected 163), 50 periods checked
+divisor=326 : last measured tick period = 326 clocks (expected 326), 50 periods checked
+clr check: first tick seen 26 clocks after the clr edge (expected 26 = div-1)
+BAUD_TEST checks=201 errors=0 -> PASS
+tb/tb_baud.v:47: $finish called at 531111000 (1ps)

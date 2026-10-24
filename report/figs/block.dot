@@ -1,0 +1,15 @@
+digraph G { rankdir=LR; node[shape=box,style="rounded,filled",fillcolor="#eef3fb",fontname=Helvetica];
+ subgraph cluster_core { label="uart_core"; style=dashed;
+  bgt[label="uart_baud_gen\n(TX, 16x tick)"]; bgr[label="uart_baud_gen\n(RX, 16x tick)"];
+  tx[label="uart_tx FSM"]; rx[label="uart_rx FSM\n2-FF sync + mid-bit"];
+  ecct[label="uart_ecc_tx\n(SECDED enc, 2 frames)",fillcolor="#fdf2e0"]; eccr[label="uart_ecc_rx\n(pair + SECDED dec)",fillcolor="#fdf2e0"];
+  abd[label="uart_autobaud\n(0x55 measure)",fillcolor="#fdf2e0"]; mon[label="uart_linemon\ncounters/drift/health",fillcolor="#fdf2e0"];
+  mux[label="divisor\nselect",shape=diamond];
+ }
+ host[label="host / bus",shape=plaintext]; line_out[label="tx pin",shape=plaintext]; line_in[label="rx pin",shape=plaintext];
+ host->ecct[label="tx_data, tx_start"]; ecct->tx; tx->line_out; bgt->tx[label="tick"];
+ line_in->rx; line_in->abd; bgr->rx[label="tick"]; rx->eccr; eccr->host[label="rx_data, rx_valid,\nerrors"];
+ abd->mux[label="div_out"]; host->mux[label="divisor"]; mux->bgt; mux->bgr;
+ rx->mon[label="valid/errs/drift"]; eccr->mon[label="corr/uncorr"]; mon->host[label="mon_*"];
+ note[shape=note,label="orange = optional (parameter-enabled)",fillcolor=white];
+}

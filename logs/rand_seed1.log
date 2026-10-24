@@ -1,0 +1,19 @@
+=== tb_uart_rand  SEED=1  DIV=16  LOWPWR_EN=0 LINEMON_EN=0 ===
+[PASS] T1 random bytes + random gaps      frames=3000 ok=3000 bad=0
+[PASS] T2 back-to-back (even parity)      frames=500 ok=500 bad=0
+[PASS] T3 parity error injection          frames=400 ok=400 bad=0
+[PASS] T4 stop bit corruption             frames=400 ok=400 bad=0
+[PASS] T5 baud mismatch +2.0%             frames=500 ok=500 bad=0
+[PASS] T5 baud mismatch  -2.0%            frames=500 ok=500 bad=0
+[PASS] T5 baud mismatch +3.0%             frames=500 ok=500 bad=0
+[PASS] T5 baud mismatch  -3.0%            frames=500 ok=500 bad=0
+[PASS] T5 baud mismatch +8.0%             frames=300 clean=19 with_errors=281 (errors expected)
+[PASS] T5 baud mismatch  -8.0%            frames=300 clean=22 with_errors=278 (errors expected)
+[PASS] T6 start-bit glitch rejection      frames=1 ok=1 bad=0
+[PASS] T7 reset mid-frame + recovery      frames=200 ok=200 bad=0
+SVA antecedent hits: A1 idle=11244282 A2 frame_end=3701 A3 done=3701 A4 accept=3751 A5 rx_valid=6746 A6 frame_err=355 A7 parity_err=347
+RESULT SEED=1 : PASS (0 failing test groups)
+- tb/tb_uart_rand.sv:266: Verilog $finish
+- S i m u l a t i o n   R e p o r t: Verilator 5.032 2025-01-01
+- Verilator: $finish at 429ms; walltime 7.352 s; speed 58.406 ms/s
+- Verilator: cpu 7.346 s on 1 threads; alloced 57 MB

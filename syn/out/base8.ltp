@@ -1,0 +1,22 @@
+21. Executing LTP pass (find longest path).
+
+Longest topological path in uart_core (length=17):
+    0: \divisor [1]
+    1: $abc$2556$new_n252 (via $abc$2556$auto$blifparse.cc:396:parse_blif$2676)
+    2: $abc$2556$new_n253 (via $abc$2556$auto$blifparse.cc:396:parse_blif$2677)
+    3: $abc$2556$new_n254 (via $abc$2556$auto$blifparse.cc:396:parse_blif$2678)
+    4: $abc$2556$new_n342 (via $abc$2556$auto$blifparse.cc:396:parse_blif$2766)
+    5: $abc$2556$new_n343 (via $abc$2556$auto$blifparse.cc:396:parse_blif$2767)
+    6: $abc$2556$new_n344 (via $abc$2556$auto$blifparse.cc:396:parse_blif$2768)
+    7: $abc$2556$new_n345 (via $abc$2556$auto$blifparse.cc:396:parse_blif$2769)
+    8: $abc$2556$new_n346 (via $abc$2556$auto$blifparse.cc:396:parse_blif$2770)
+    9: $abc$2556$new_n347 (via $abc$2556$auto$blifparse.cc:396:parse_blif$2771)
+   10: $abc$2556$new_n348 (via $abc$2556$auto$blifparse.cc:396:parse_blif$2772)
+   11: $abc$2556$new_n349 (via $abc$2556$auto$blifparse.cc:396:parse_blif$2773)
+   12: $abc$2556$new_n353 (via $abc$2556$auto$blifparse.cc:396:parse_blif$2777)
+   13: $abc$2556$new_n439 (via $abc$2556$auto$blifparse.cc:396:parse_blif$2863)
+   14: $abc$2556$new_n450 (via $abc$2556$auto$blifparse.cc:396:parse_blif$2874)
+   15: $abc$2556$new_n452 (via $abc$2556$auto$blifparse.cc:396:parse_blif$2876)
+   16: $abc$2556$new_n454 (via $abc$2556$auto$blifparse.cc:396:parse_blif$2878)
+   17: $abc$2230$flatten\u_tx.$0\tcnt[3:0][2] (via $abc$2556$auto$blifparse.cc:396:parse_blif$2879)
+   ff: \u_tx.tcnt [2] (via $auto$ff.cc:266:slice$1321)

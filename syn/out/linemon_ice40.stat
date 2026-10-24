@@ -1,0 +1,23 @@
+
+16. Printing statistics.
+
+=== uart_core ===
+
+   Number of wires:                383
+   Number of wire bits:           1434
+   Number of public wires:         383
+   Number of public wire bits:    1434
+   Number of ports:                 30
+   Number of port bits:            163
+   Number of memories:               0
+   Number of memory bits:            0
+   Number of processes:              0
+   Number of cells:                618
+     $scopeinfo                      5
+     SB_CARRY                      130
+     SB_DFFER                      108
+     SB_DFFES                        4
+     SB_DFFR                        57
+     SB_DFFS                         3
+     SB_LUT4                       311
+

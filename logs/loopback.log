@@ -1,0 +1,6 @@
+VCD info: dumpfile waves/tb_loopback.vcd opened for output.
+parity_mode=0 (none): 256/256 bytes OK
+parity_mode=1 (even): 256/256 bytes OK
+parity_mode=2 ( odd): 256/256 bytes OK
+LOOPBACK_TEST frames_checked=772 pass=772 fail=0 -> PASS
+tb/tb_loopback.v:70: $finish called at 10570490000 (1ps)

@@ -1,0 +1,6 @@
+digraph B { rankdir=LR; node[shape=box,style="rounded,filled",fillcolor="#eefbef",fontname=Helvetica];
+ gen[label="stimulus generator\nxorshift32(+SEED)"]; bfm[label="line BFM\nreal-ns bit timing\n(baud scale, glitches,\nparity/stop corruption)"];
+ drv[label="DUT TX driver"]; dut[label="uart_core (DUT)",fillcolor="#eef3fb"]; sb[label="scoreboard\n(expected queue)"];
+ sva[label="uart_sva (bind)\nA1..A12",fillcolor="#fbeeee"]; rep[label="report / RESULT line\n$fatal on fail"];
+ gen->bfm; gen->drv; bfm->dut[label="rx"]; drv->dut[label="tx_start"]; dut->bfm[label="tx (loopback)"];
+ dut->sb[label="rx_data, flags"]; gen->sb[label="expected"]; dut->sva; sb->rep; sva->rep; }

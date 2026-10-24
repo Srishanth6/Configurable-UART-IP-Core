@@ -1,0 +1,4 @@
+=== tb_uart_rand  SEED=1  DIV=16  LOWPWR_EN=0 LINEMON_EN=0 ===
+[69550000] %Error: uart_sva.sv:77: Assertion failed in tb_uart_rand.chk.a_rx_valid_pulse: A5 rx_valid longer than one clock
+%Error: sva/uart_sva.sv:77: Verilog $stop
+Aborting...

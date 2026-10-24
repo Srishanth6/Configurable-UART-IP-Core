@@ -1,0 +1,7 @@
+build/
+obj_dir/
+*.vvp
+__pycache__/
+syn/out/*.log
+# big power-proxy dumps (regenerate with `make power`)
+waves/power_lp*.vcd*

@@ -1,0 +1,4 @@
+digraph A { rankdir=LR; node[shape=circle,fontname=Helvetica,width=0.9];
+ AB_IDLE->HIGH[label="abd_start"]; HIGH->FALL[label="line idle high"]; FALL->MEAS[label="1st falling edge"];
+ MEAS->MEAS[label="count clocks"]; MEAS->POST[label="5th falling edge\ndiv=(T+64)>>7"]; POST->AB_IDLE[label="stop bit seen / locked"];
+ MEAS->AB_IDLE[label="overflow: lock_err"]; }

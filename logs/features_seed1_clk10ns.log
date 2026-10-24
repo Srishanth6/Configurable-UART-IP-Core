@@ -1,0 +1,50 @@
+=== tb_features  SEED=1  CLK=100.0 MHz ===
+  autobaud clk=100.0MHz baud=2400 ideal_div=2604.17 locked=1 div=2604 rate_err=0.01% bytes_rx=10/10
+[PASS] F1 lock accuracy  baud=2400 clk=100.0MHz (|div-ideal|<=0.55)
+[PASS] F1 data after lock baud=2400 (rate error 0.01% < 2%)
+  autobaud clk=100.0MHz baud=9600 ideal_div=651.04 locked=1 div=651 rate_err=0.01% bytes_rx=10/10
+[PASS] F1 lock accuracy  baud=9600 clk=100.0MHz (|div-ideal|<=0.55)
+[PASS] F1 data after lock baud=9600 (rate error 0.01% < 2%)
+  autobaud clk=100.0MHz baud=19200 ideal_div=325.52 locked=1 div=326 rate_err=-0.15% bytes_rx=10/10
+[PASS] F1 lock accuracy  baud=19200 clk=100.0MHz (|div-ideal|<=0.55)
+[PASS] F1 data after lock baud=19200 (rate error -0.15% < 2%)
+  autobaud clk=100.0MHz baud=57600 ideal_div=108.51 locked=1 div=109 rate_err=-0.45% bytes_rx=40/40
+[PASS] F1 lock accuracy  baud=57600 clk=100.0MHz (|div-ideal|<=0.55)
+[PASS] F1 data after lock baud=57600 (rate error -0.45% < 2%)
+  autobaud clk=100.0MHz baud=115200 ideal_div=54.25 locked=1 div=54 rate_err=0.47% bytes_rx=40/40
+[PASS] F1 lock accuracy  baud=115200 clk=100.0MHz (|div-ideal|<=0.55)
+[PASS] F1 data after lock baud=115200 (rate error 0.47% < 2%)
+  autobaud clk=100.0MHz baud=230400 ideal_div=27.13 locked=1 div=27 rate_err=0.47% bytes_rx=40/40
+[PASS] F1 lock accuracy  baud=230400 clk=100.0MHz (|div-ideal|<=0.55)
+[PASS] F1 data after lock baud=230400 (rate error 0.47% < 2%)
+  autobaud clk=100.0MHz baud=460800 ideal_div=13.56 locked=1 div=14 rate_err=-3.12% bytes_rx=40/40
+[PASS] F1 lock accuracy  baud=460800 clk=100.0MHz (|div-ideal|<=0.55)
+[INFO] F1 data after lock baud=460800: rate error -3.12% outside +-2%, 40/40 bytes ok (not required)
+  autobaud clk=100.0MHz baud=921600 ideal_div=6.78 locked=1 div=7 rate_err=-3.12% bytes_rx=40/40
+[PASS] F1 lock accuracy  baud=921600 clk=100.0MHz (|div-ideal|<=0.55)
+[INFO] F1 data after lock baud=921600: rate error -3.12% outside +-2%, 40/40 bytes ok (not required)
+  ECC: clean=589 (ok 589)  single-flip=621 (corrected 621)  double-flip=290 (detected 290)  mismatches=0
+  monitor: corr=621 uncorr=290 frames=3000 health=60
+[PASS] F2 SECDED random flips (1500 bytes)
+[PASS] F4 monitor ECC counters match injected flips
+  monitor clean: frames=128 parity=0 framing=0 corr=0 uncorr=0 drift_max=1 health=100
+[PASS] F4 clean link -> no errors, drift<=1/16 bit, health=100
+  monitor baud  0.0%: frames=80 framing=0 corr=0 uncorr=0 drift_last=-1 drift_max=1 health=100
+  monitor baud +2.0%: frames=80 framing=0 corr=0 uncorr=0 drift_last=2 drift_max=2 health=100
+  monitor baud +3.0%: frames=80 framing=0 corr=0 uncorr=0 drift_last=4 drift_max=4 health=84
+  monitor baud +6.0%: frames=80 framing=57 corr=0 uncorr=0 drift_last=4 drift_max=7 health=0
+[PASS] F4 drift grows with baud mismatch (0% < 3% < 6%)
+[PASS] F4 health drops at 6% mismatch
+  monitor noise: injected parity=45 framing=26 | seen pulses parity=45 framing=26 | counters parity=45 framing=26 frames=200 health=8
+[PASS] F4 noise: monitor counters == injected == observed
+[PASS] F4 noise: health score dropped
+SVA antecedent hits: A1 idle=18767301 A2 frame_end=3128 A3 done=3128 A4 accept=3128 A5 rx_valid=4025 A6 frame_err=83 A7 parity_err=45
+SVA hits (low power): A8 rx_idle=4395932 A9 tx_idle=18764173
+SVA hits (ecc): A10=988
+SVA hits (auto-baud): A11=8
+SVA hits (monitor): A12 cycles with parity count>0 = 625787
+RESULT SEED=1 CLK=100.0MHz : PASS (0 failing checks)
+- tb/tb_features.sv:341: Verilog $finish
+- S i m u l a t i o n   R e p o r t: Verilator 5.032 2025-01-01
+- Verilator: $finish at 268ms; walltime 10.724 s; speed 24.970 ms/s
+- Verilator: cpu 10.723 s on 1 threads; alloced 57 MB

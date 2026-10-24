@@ -1,0 +1,14 @@
+waves/power_lp0.vcd: toggles idle=15206486 active=802085 total=16008571
+    tb_power.dut.u_bg_rx.cnt                 idle= 7321602 active=  366235
+    tb_power.dut.u_bg_tx.cnt                 idle= 7321602 active=  366160
+    tb_power.dut.rx_tick                     idle=  281601 active=   14086
+    tb_power.dut.tx_tick                     idle=  281601 active=   14080
+    tb_power.dut.u_tx.tcnt                   idle=       1 active=   13200
+    tb_power.dut.u_rx.tcnt                   idle=       1 active=   12640
+waves/power_lp1.vcd: toggles idle=127 active=777894 total=778021
+    tb_power.dut.u_bg_tx.cnt                 idle=       1 active=  366080
+    tb_power.dut.u_bg_rx.cnt                 idle=       1 active=  349440
+    tb_power.dut.tx_tick                     idle=       1 active=   14080
+    tb_power.dut.rx_tick                     idle=       1 active=   13440
+    tb_power.dut.u_tx.tcnt                   idle=       1 active=   13200
+    tb_power.dut.u_rx.tcnt                   idle=       1 active=   12640

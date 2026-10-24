@@ -1,0 +1,24 @@
+
+18. Printing statistics.
+
+=== uart_core ===
+
+   Number of wires:               1447
+   Number of wire bits:           1870
+   Number of public wires:         123
+   Number of public wire bits:     541
+   Number of ports:                 30
+   Number of port bits:            163
+   Number of memories:               0
+   Number of memory bits:            0
+   Number of processes:              0
+   Number of cells:               1507
+     $_DFFE_PN0P_                  108
+     $_DFFE_PN1P_                    4
+     $_DFF_PN0_                     57
+     $_DFF_PN1_                      3
+     $_NAND_                       517
+     $_NOR_                        520
+     $_NOT_                        293
+     $scopeinfo                      5
+
