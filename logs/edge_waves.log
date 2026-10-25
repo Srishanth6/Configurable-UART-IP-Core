@@ -30,5 +30,5 @@ SVA-ext antecedent hits: B1 tick_period=11174 B2 start_mid=48 B2 data_mid=344 B3
 RESULT tb_edge DIV=4 : PASS (0 failing groups, 0 errors)
 - tb/tb_edge.sv:214: Verilog $finish
 - S i m u l a t i o n   R e p o r t: Verilator 5.032 2025-01-01
-- Verilator: $finish at 899us; walltime 0.037 s; speed 23.593 ms/s
-- Verilator: cpu 0.038 s on 1 threads; alloced 57 MB
+- Verilator: $finish at 899us; walltime 0.046 s; speed 19.197 ms/s
+- Verilator: cpu 0.047 s on 1 threads; alloced 57 MB

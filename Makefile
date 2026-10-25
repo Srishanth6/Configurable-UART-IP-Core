@@ -38,6 +38,15 @@ waves_err:
 	scripts/vbuild.sh tb_edge build/edge_tr -GDIV=4 -GFRAMES=4 --trace +define+DUMP sva/uart_sva_ext.sv >/dev/null
 	build/edge_tr/sim 2>&1 | tee logs/edge_waves.log
 	$(PYTHON) scripts/err_waves.py
+# injected-bug demo: RX samples 3/16 bit late, B2 must fire; keeps a VCD for GTKWave
+bug_demo:
+	mkdir -p build logs waves
+	scripts/vbuild.sh tb_edge build/edge_bug -GDIV=4 -GFRAMES=4 --trace +define+DUMP +define+INJECT_BUG_RXMID sva/uart_sva_ext.sv >/dev/null
+	build/edge_bug/sim +vcd=waves/tb_edge_bug_rxmid.vcd 2>&1 | tee logs/bug_demo.log; \
+	  grep -q "B2 start bit sampled" logs/bug_demo.log && echo "bug_demo: injected bug caught by B2 (expected)"
+# real GTKWave window screenshots -> report/figs/gtkwave_*.png (needs an X display)
+gtkwave_shots: waves_err bug_demo
+	scripts/gtkwave_shots.sh
 # negative tests: these MUST fail, the script checks that they do
 neg:
 	mkdir -p build logs

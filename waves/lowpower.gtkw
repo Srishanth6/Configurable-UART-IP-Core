@@ -1,0 +1,37 @@
+[*]
+[*] GTKWave Analyzer v3.3.121 (w)1999-2024 BSI
+[*] Sun Oct 25 02:55:26 2026
+[*]
+[dumpfile] "waves/power_lp1.vcd.gz"
+[dumpfile_mtime] "Sat Oct 24 16:39:43 2026"
+[dumpfile_size] 19753432
+[savefile] "waves/lowpower.gtkw"
+[timestart] 0
+[size] 1280 800
+[pos] 0 0
+*-29.122206 1995980000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 269
+[signals_width] 230
+[sst_expanded] 1
+[sst_vpaned_height] 226
+@28
+tb_power.phase_active
+tb_power.dut.tx_start
+@22
+tb_power.dut.tx_data[7:0]
+@28
+tb_power.dut.tx_bg_en
+tb_power.dut.tx_tick
+@22
+tb_power.dut.u_bg_tx.cnt[15:0]
+@28
+tb_power.dut.tx
+tb_power.dut.tx_busy
+tb_power.dut.rx_bg_en
+tb_power.dut.rx_tick
+@22
+tb_power.dut.u_bg_rx.cnt[15:0]
+@28
+tb_power.dut.rx_valid
+[pattern_trace] 1
+[pattern_trace] 0

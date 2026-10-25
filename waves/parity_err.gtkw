@@ -1,0 +1,38 @@
+[*]
+[*] GTKWave Analyzer v3.3.121 (w)1999-2024 BSI
+[*] Sun Oct 25 02:55:11 2026
+[*]
+[dumpfile] "waves/tb_edge_err.vcd"
+[dumpfile_mtime] "Sun Oct 25 02:55:03 2026"
+[dumpfile_size] 8676962
+[savefile] "waves/parity_err.gtkw"
+[timestart] 832510000
+[size] 1280 800
+[pos] 0 0
+*-23.075935 846050000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[sst_width] 269
+[signals_width] 230
+[sst_expanded] 1
+[sst_vpaned_height] 226
+@28
+tb_edge.clk
+tb_edge.rst_n
+@22
+tb_edge.pmode[1:0]
+@28
+tb_edge.bfm_sel
+tb_edge.line
+tb_edge.chk2.rx_tick
+@22
+tb_edge.chk2.rx_state[2:0]
+@24
+tb_edge.chk2.rx_bit_no[2:0]
+@28
+tb_edge.rx_valid
+@22
+tb_edge.rx_data[7:0]
+@28
+tb_edge.parity_err
+tb_edge.frame_err
+[pattern_trace] 1
+[pattern_trace] 0

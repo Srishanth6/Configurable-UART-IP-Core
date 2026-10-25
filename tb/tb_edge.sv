@@ -106,7 +106,7 @@ module tb_edge;
 
 `ifdef DUMP
     // top-level signals only (keeps the file small); used for waves/*.png
-    initial begin $dumpfile("waves/tb_edge_err.vcd"); $dumpvars(1, tb_edge); end
+    initial begin string f; if (!$value$plusargs("vcd=%s", f)) f = "waves/tb_edge_err.vcd"; $dumpfile(f); $dumpvars(1, tb_edge); end
 `endif
     initial begin
         int f0;

@@ -130,6 +130,44 @@ The random TB (seed 1) covers:
 ![Parity error](report/figs/wave_parity_err.png)
 ![Framing error](report/figs/wave_frame_err.png)
 
+### GTKWave screenshots (`make gtkwave_shots`)
+
+These are real screenshots of GTKWave 3.3.121 with the saved VCDs open, not plots. Each view has a save file in `waves/` (signals, hex radix for buses, zoom and marker), so it can be reopened with `gtkwave <vcd> <gtkw>`. `make gtkwave_shots` regenerates the VCDs and the screenshots (it needs an X display, or run it under `xvfb-run`). `waves/tb_edge_err.vcd` is not committed (8.7 MB); `make waves_err` recreates it.
+
+| View | Open with | Window, marker |
+|---|---|---|
+| TX/RX loopback | `gtkwave waves/tb_loopback.vcd waves/loopback.gtkw` | 0-27 µs, marker 12.39 µs (first rx_valid) |
+| Parity error | `gtkwave waves/tb_edge_err.vcd waves/parity_err.gtkw` | 832.51-865.80 µs, marker 846.05 µs (parity_err with rx_valid, rx_data=96) |
+| Framing error | `gtkwave waves/tb_edge_err.vcd waves/frame_err.gtkw` | 642.91-663.40 µs, marker 655.17 µs (frame_err, no rx_valid) |
+| Low power (LOWPWR_EN=1) | `gtkwave waves/power_lp1.vcd.gz waves/lowpower.gtkw` | 0-2.2 ms, marker 1995.98 µs (next frame starts) |
+| Injected bug RXMID | `gtkwave waves/tb_edge_bug_rxmid.vcd waves/bug_rxmid.gtkw` | 0-1.12 µs, marker 1.10 µs |
+
+The injected-bug run (`make bug_demo`, `logs/bug_demo.log`) stops at 1.11 µs with *"B2 start bit sampled at tick 11, expected 8"*. The VCD's last dumped time is 1.10 µs, so the marker is placed there. In the screenshot, `rx_tcnt` is loaded with 5 instead of 8 when the start bit is detected (see `rtl/uart_rx.v`), which is the injected bug.
+
+![GTKWave loopback](report/figs/gtkwave_loopback.png)
+
+*Figure G1: GTKWave, TX/RX loopback (tb_loopback.vcd).*
+
+![GTKWave parity error](report/figs/gtkwave_parity_err.png)
+
+*Figure G2: GTKWave, parity error (tb_edge_err.vcd).*
+
+![GTKWave framing error](report/figs/gtkwave_frame_err.png)
+
+*Figure G3: GTKWave, framing error (tb_edge_err.vcd).*
+
+![GTKWave low power](report/figs/gtkwave_lowpower.png)
+
+*Figure G4: GTKWave, low-power mode: baud counters stop between frames (power_lp1.vcd.gz).*
+
+![Terminal: make bug_demo](report/figs/gtkwave_bug_rxmid_terminal.png)
+
+*Figure G5: terminal running `make bug_demo`; the SVA error from B2.*
+
+![GTKWave injected bug](report/figs/gtkwave_bug_rxmid.png)
+
+*Figure G6: GTKWave at the B2 failure (tb_edge_bug_rxmid.vcd).*
+
 ## Feature results
 
 **Auto-baud.** The test locks on 0x55 and then checks the bytes that follow. The locked divisor is always the nearest integer to the ideal value.
@@ -215,6 +253,8 @@ make features             # auto-baud / ECC / monitor at 3 clocks
 make power                # VCD toggle-count proxy
 make edge                 # divisor limits, reset in every state, parity codes, bad frames
 make waves_err            # traced run -> TX/RX, parity and framing error plots
+make bug_demo             # injected RXMID bug, B2 must fire; writes waves/tb_edge_bug_rxmid.vcd
+make gtkwave_shots        # real GTKWave screenshots -> report/figs/gtkwave_*.png (needs X / xvfb-run)
 make synth                # Yosys + nextpnr table -> logs/synth_summary.log
 make all                  # everything above except report
 make report               # figures + PDF
