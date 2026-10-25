@@ -299,19 +299,19 @@ The injected-bug run (`make bug_demo`, `logs/bug_demo.log`) stops at 1.11 µs wi
 
 ![GTKWave loopback](figs/gtkwave_loopback.png)
 
-*Figure G1: GTKWave, TX/RX loopback (tb_loopback.vcd).*
+*Figure G1: GTKWave on Windows 11, TX/RX loopback; simulated with Icarus Verilog 12 on Windows (tb_loopback.vcd).*
 
 ![GTKWave parity error](figs/gtkwave_parity_err.png)
 
-*Figure G2: GTKWave, parity error (tb_edge_err.vcd).*
+*Figure G2: GTKWave on Windows 11, parity error (tb_edge_err.vcd, simulated with Verilator 5.032 on Linux).*
 
 ![GTKWave framing error](figs/gtkwave_frame_err.png)
 
-*Figure G3: GTKWave, framing error (tb_edge_err.vcd).*
+*Figure G3: GTKWave on Windows 11, framing error (tb_edge_err.vcd, simulated with Verilator 5.032 on Linux).*
 
 ![GTKWave low power](figs/gtkwave_lowpower.png)
 
-*Figure G4: GTKWave, low-power mode: baud counters stop between frames (power_lp1.vcd.gz).*
+*Figure G4: GTKWave on Windows 11, low-power mode: baud counters stop between frames; simulated with Icarus Verilog 12 on Windows (power_lp1.vcd).*
 
 ![Terminal: make bug_demo](figs/gtkwave_bug_rxmid_terminal.png)
 
@@ -319,7 +319,7 @@ The injected-bug run (`make bug_demo`, `logs/bug_demo.log`) stops at 1.11 µs wi
 
 ![GTKWave injected bug](figs/gtkwave_bug_rxmid.png)
 
-*Figure G6: GTKWave at the B2 failure (tb_edge_bug_rxmid.vcd).*
+*Figure G6: GTKWave on Windows 11 at the B2 failure (tb_edge_bug_rxmid.vcd, simulated with Verilator 5.032 on Linux).*
 
 ## 6. Assertions (SVA)
 
