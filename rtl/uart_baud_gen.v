@@ -17,7 +17,12 @@ module uart_baud_gen #(
     reg [DIV_W-1:0] cnt;
 
     // tick is high for one clock every 'divisor' clocks
+`ifdef INJECT_BUG_BAUD
+    // deliberate bug for the negative assertion test: off-by-one divisor
+    assign tick = en && (cnt == divisor);
+`else
     assign tick = en && (cnt == divisor - 1'b1);
+`endif
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n)

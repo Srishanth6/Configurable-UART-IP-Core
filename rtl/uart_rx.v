@@ -103,7 +103,11 @@ module uart_rx #(
 
             case (state)
             SR_IDLE: if (wake) begin
+`ifdef INJECT_BUG_RXMID
+                tcnt    <= 4'd5;              // deliberate bug: samples 3/16 bit late
+`else
                 tcnt    <= 4'd8;              // 8 more ticks -> middle of start bit
+`endif
                 par_en  <= (pmode == 2'b01) || (pmode == 2'b10);
                 par_odd <= (pmode == 2'b10);
                 state   <= SR_START;
