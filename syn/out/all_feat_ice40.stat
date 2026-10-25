@@ -1,23 +1,23 @@
 
-16. Printing statistics.
+18. Printing statistics.
 
 === uart_core ===
 
-   Number of wires:                744
-   Number of wire bits:           2229
-   Number of public wires:         744
-   Number of public wire bits:    2229
+   Number of wires:                743
+   Number of wire bits:           2204
+   Number of public wires:         743
+   Number of public wire bits:    2204
    Number of ports:                 30
    Number of port bits:            163
    Number of memories:               0
    Number of memory bits:            0
    Number of processes:              0
-   Number of cells:               1158
+   Number of cells:               1152
      $scopeinfo                     10
      SB_CARRY                      239
      SB_DFFER                      276
      SB_DFFES                        4
      SB_DFFR                        32
      SB_DFFS                         6
-     SB_LUT4                       591
+     SB_LUT4                       585
 

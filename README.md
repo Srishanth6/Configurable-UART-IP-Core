@@ -27,6 +27,20 @@ are enabled through parameters. All results below are copied from the logs in
 
 ## Architecture
 
+```
+            divisor / div_active (auto-baud)
+                    |
+         +----------+-----------+
+         |                      |
+   uart_baud_gen (TX)     uart_baud_gen (RX)      LOWPWR_EN: en gated by busy
+         | tx_tick              | rx_tick
+ tx_start/tx_data          rx --+--> [ABD mux] --> uart_rx --> rx_data/rx_valid
+   --> [ECC_EN: uart_ecc_tx]                        |  parity_err/frame_err
+   --> uart_tx --> tx                   [ECC_EN: uart_ecc_rx + secded_dec]
+                                        [LINEMON_EN: uart_linemon -> mon_*]
+                   [AUTOBAUD_EN: uart_autobaud measures 0x55 -> abd_div]
+```
+
 ![Block diagram](report/figs/block.png)
 
 ![UART frame](report/figs/frame.png)
@@ -40,6 +54,29 @@ are enabled through parameters. All results below are copied from the logs in
 ### Auto-baud FSM
 ![Auto-baud FSM](report/figs/fsm_abd.png)
 
+## Interface (`uart_core`)
+
+| Parameter | Default | Range / meaning |
+|---|---|---|
+| `DIV_W` | 16 | divisor width; tested 8 and 16 (synthesis), divisor 1..65535 in sim (`make edge`) |
+| `PARITY_SUPPORT` | 1 | 0 removes parity logic (`parity_mode` ignored) |
+| `AUTOBAUD_EN`, `ECC_EN`, `LOWPWR_EN`, `LINEMON_EN` | 0 | 1 enables the feature |
+
+| Port | Dir | Width | Description |
+|---|---|---|---|
+| `clk`, `rst_n` | in | 1 | clock, async active-low reset |
+| `divisor` | in | `DIV_W` | clocks per 1/16 bit = f_clk/(16*baud), must be >= 1 (checked by SVA B4) |
+| `parity_mode` | in | 2 | 00 none, 01 even, 10 odd, 11 none |
+| `tx_start`, `tx_data` | in | 1, 8 | byte accepted when `tx_start` and TX idle |
+| `tx`, `tx_busy`, `tx_done` | out | 1 | serial out (idle high), frame in progress, 1-clock end pulse |
+| `rx` | in | 1 | serial in (2-flop synchronised) |
+| `rx_data`, `rx_valid`, `parity_err`, `frame_err` | out | 8,1,1,1 | received byte, 1-clock pulses |
+| `abd_start` / `abd_busy`, `abd_locked`, `abd_err` | in / out | 1 | auto-baud control/status |
+| `div_active` | out | `DIV_W` | divisor in use (auto-baud result once locked) |
+| `ecc_corr`, `ecc_uncorr` | out | 1 | SECDED corrected / uncorrectable flags |
+| `mon_clr` / `mon_frames`, `mon_parity`, `mon_framing`, `mon_corr`, `mon_uncorr` | in / out | 1 / 16 | line-monitor clear and counters |
+| `mon_drift_last`, `mon_drift_max`, `mon_health` | out | 5 (signed), 4, 7 | bit-edge drift (1/16 bit) and health 0-100 |
+
 ## Verification
 
 ![Testbench architecture](report/figs/tb_arch.png)
@@ -51,7 +88,23 @@ are enabled through parameters. All results below are copied from the logs in
 | Random TB, seeds 1, 42, 2026 (base config) | **12/12 groups PASS** for each seed | `logs/rand_seed*.log` |
 | Random TB, same seeds, `LOWPWR_EN=1 LINEMON_EN=1` | **12/12 PASS** for each seed | `logs/rand_lp_mon_seed*.log` |
 | Feature TB, 3 seeds × 50/100/133.3 MHz | **9/9 runs PASS** | `logs/features_seed*_clk*.log` |
-| Negative tests (injected bugs) | Both caught by SVA, exit code 134 | `logs/negative_tests.log` |
+| Edge cases, divisor = 1, 2, 3, 16, 255 (full set) and 65535 (back-to-back only) | **6/6 runs PASS** | `logs/edge_div*.log` |
+| Negative tests (4 injected bugs) | **All 4 caught by SVA**, exit code 134 | `logs/negative_tests.log` |
+
+Edge-case testbench `tb/tb_edge.sv` (added after review), groups per run:
+- E1 divisor boundary values: 1, 2, 3, 16, 255, 65535 (the 16-bit maximum);
+- E2 reset asserted in every TX state (START, DATA, PARITY, STOP), then a good frame must follow;
+- E3 reset asserted in every RX state (START, DATA, PARITY, STOP, BREAK), no byte may come out, then recovery;
+- E4 back-to-back frames (`tx_start` held) in all four `parity_mode` codes 00/01/10/11;
+- E5 malformed frames: start glitches of 1 clock up to just under half a bit (rejected), bad stop bit in all four parity codes (`frame_err`, no `rx_valid`), wrong parity bit for even and odd.
+
+**Assertions.** `sva/uart_sva.sv` has A1-A12 (TX idle/frame length/done/start bit, RX pulses and error flags, low-power, ECC, auto-baud, monitor). `sva/uart_sva_ext.sv` adds:
+- **B1** baud timing: every tick comes exactly `divisor` clocks after the previous one (B1b: never later);
+- **B2** RX mid-bit sampling: start bit sampled 8 ticks after detection, data bit n at 8+16(n+1) ticks;
+- **B3** reset: TX/RX FSMs idle, `tx`=1 and no `rx_valid`/`parity_err`/`frame_err` while reset is held and at release;
+- **B4** parameter/divisor boundaries: `DIV_W` in 1..32 at elaboration, `divisor != 0` at run time.
+
+Antecedent hit counts are printed in every log (e.g. DIV=16: B1 29,873, B2 start 160, B2 data 1,240, B3 13 reset cycles).
 
 The random TB (seed 1) covers:
 - 3000 random frames;
@@ -65,10 +118,17 @@ The random TB (seed 1) covers:
 **Negative assertion tests**
 - `+define+INJECT_BUG` stretches `rx_valid` to 2 cycles. It was caught by **A5** at 69.55 µs.
 - `+define+INJECT_BUG_TX` makes the stop bit one tick short. It was caught by **A2**: "tx_busy length 2544, expected 2560".
+- `+define+INJECT_BUG_BAUD` makes the baud counter off by one. It was caught by **B1b** at 330 ns: "no baud tick for 5 clocks (divisor=4)".
+- `+define+INJECT_BUG_RXMID` starts RX sampling 3/16 bit late. It was caught by **B2** at 1.11 µs: "start bit sampled at tick 11, expected 8".
 
 ### Waveforms (from `waves/tb_loopback.vcd`)
 ![Loopback](report/figs/wave_loopback.png)
 ![Start bit zoom](report/figs/wave_zoom.png)
+
+### Error waveforms (from `waves/tb_edge_err.vcd`, `make waves_err`, DIV=4)
+![TX/RX timing](report/figs/wave_txrx_timing.png)
+![Parity error](report/figs/wave_parity_err.png)
+![Framing error](report/figs/wave_frame_err.png)
 
 ## Feature results
 
@@ -112,29 +172,37 @@ The random TB (seed 1) covers:
 
 In the noise test, the monitor counters matched the injected errors exactly (45 parity and 26 framing errors for seed 1).
 
-## Synthesis (Yosys 0.52)
+## Synthesis (Yosys 0.52, nextpnr-ice40)
 
-| Config | Generic cells | Flops | Logic depth | iCE40 LUT4 |
-|---|---|---|---|---|
-| Base, `DIV_W=16` | 889 | 88 | 25 | 174 |
-| Base, `DIV_W=8` | 621 | 72 | 17 | 116 |
-| Base, no parity | 809 | 82 | 25 | 167 |
-| + auto-baud | 1327 | 139 | 31 | 286 |
-| + ECC | 1426 | 151 | 28 | 276 |
-| + low power | 814 | 88 | 28 | 198 |
-| + line monitor | 1507 | 172 | 28 | 311 |
-| All features | 2720 | 318 | 31 | 591 |
+All feature configs use `DIV_W=16 PARITY_SUPPORT=1`, so each row differs from *Base, DIV_W=16* only by the feature(s) named.
 
-Notes on the table:
-- The generic flow is `synth; abc -g cmos2`, and logic depth comes from `ltp -noff`.
-- No timing library or STA was used.
+| Config | Generic cells | Generic flops | Logic depth (gates) | iCE40 LUT4 | iCE40 DFF | Fmax (MHz, nextpnr) |
+|---|---|---|---|---|---|---|
+| Base, `DIV_W=16` | 889 | 88 | 25 | 174 | 88 | 141.78 |
+| Base, `DIV_W=8` | 621 | 72 | 17 | 116 | 72 | 142.78 |
+| Base, no parity | 809 | 82 | 25 | 167 | 82 | 124.60 |
+| + auto-baud | 1327 | 139 | 31 | 286 | 139 | 73.92 |
+| + ECC | 1426 | 151 | 28 | 271 | 151 | 128.52 |
+| + low power | 814 | 88 | 28 | 198 | 88 | 126.25 |
+| + line monitor | 1532 | 172 | 27 | 311 | 172 | 75.71 |
+| All features | 2698 | 318 | 31 | 585 | 318 | 73.87 |
+
+What each column is:
+- **Generic cells / flops**: Yosys `synth -flatten; abc -g cmos2` internal gates. Not a real cell library, no area.
+- **Logic depth**: longest combinational path counted in gates (`ltp -noff`). It is not a delay.
+- **iCE40 LUT4 / DFF**: `synth_ice40` technology mapping.
+- **Fmax**: nextpnr-ice40 post-place-and-route estimate for iCE40 HX8K (ct256), seed 1, I/O pins unconstrained. It is the only real timing number; no ASIC STA was done. If nextpnr is not installed the script prints `not_measured`.
+- The ECC, line-monitor and all-features rows changed slightly from the first version (e.g. all features 2720 -> 2698 cells, ECC 276 -> 271 LUT4) after setting `DIV_W`/`PARITY_SUPPORT` explicitly with `chparam`; this table is the current `logs/synth_summary.log`. The report PDF still shows the old numbers.
 
 ![LUTs](report/figs/synth_luts.png)
 
 ## How to run
 
 Requirements: Verilator 5.x, Icarus Verilog 12, Yosys 0.5x, Python 3 with matplotlib and
-python-docx, Graphviz, and LibreOffice (the last one only for the PDF).
+python-docx, Graphviz, and LibreOffice (the last one only for the PDF). nextpnr-ice40 is optional (Fmax column).
+
+Every target creates `build/`, `logs/` and `waves/` itself, so a fresh clone works with `make all`.
+CI (`.github/workflows/ci.yml`) installs the tools on Ubuntu 24.04 and runs the same targets on every push.
 
 ```bash
 make baud loopback        # iverilog tests
@@ -142,7 +210,10 @@ make rand rand_feat       # randomized TB (SEEDS="1 42 2026" by default)
 make neg                  # injected-bug tests; the assertions must fire
 make features             # auto-baud / ECC / monitor at 3 clocks
 make power                # VCD toggle-count proxy
-make synth                # Yosys table -> logs/synth_summary.log
+make edge                 # divisor limits, reset in every state, parity codes, bad frames
+make waves_err            # traced run -> TX/RX, parity and framing error plots
+make synth                # Yosys + nextpnr table -> logs/synth_summary.log
+make all                  # everything above except report
 make report               # figures + PDF
 ```
 
@@ -150,9 +221,9 @@ make report               # figures + PDF
 
 ```
 rtl/      Verilog design (uart_core.v is the top)
-sva/      SystemVerilog assertions A1-A12
-tb/       testbenches (tb_baud, tb_loopback, tb_power: iverilog; tb_uart_rand, tb_features: Verilator)
-scripts/  vbuild.sh, neg_tests.sh, synth_all.sh, vcd_toggles.py
+sva/      SystemVerilog assertions A1-A12 (uart_sva.sv), B1-B4 (uart_sva_ext.sv)
+tb/       testbenches (tb_baud, tb_loopback, tb_power: iverilog; tb_uart_rand, tb_features, tb_edge: Verilator)
+scripts/  vbuild.sh, neg_tests.sh, synth_all.sh, vcd_toggles.py, err_waves.py
 logs/     every log the results above come from
 waves/    small VCDs (tb_baud, tb_loopback); power VCDs are regenerated by `make power`
 syn/out/  Yosys stats per configuration
@@ -166,4 +237,7 @@ report/   report source (.md/.docx), PDF, figures and their generator scripts
 - ECC halves the throughput, and a lost frame drops the byte (it is flagged, not recovered).
 - The power numbers are an RTL toggle-count proxy, not a real power estimate.
 - Verification is simulation only: no formal proofs, gate-level simulation or hardware test.
+- Fmax is an iCE40 place-and-route estimate with unconstrained pins, not a board-level result; there is no ASIC timing.
+- The 65535 divisor run checks back-to-back frames only (the full edge set would take too long at that rate).
+- CI was checked by running the same commands in a clean clone on the box; it has not yet run on GitHub.
 - The health score formula is my own heuristic.

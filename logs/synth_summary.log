@@ -1,9 +1,9 @@
-config         params                                          cells      dff  depth   ice_LC  ice_DFF
-base16         AUTOBAUD_EN=0 ECC_EN=0 LOWPWR_EN=0 LINEMON_EN=0 DIV_W=16 PARITY_SUPPORT=1      889       88     25      174       88
-base8          AUTOBAUD_EN=0 ECC_EN=0 LOWPWR_EN=0 LINEMON_EN=0 DIV_W=8 PARITY_SUPPORT=1      621       72     17      116       72
-noparity16     AUTOBAUD_EN=0 ECC_EN=0 LOWPWR_EN=0 LINEMON_EN=0 DIV_W=16 PARITY_SUPPORT=0      809       82     25      167       82
-autobaud       AUTOBAUD_EN=1 ECC_EN=0 LOWPWR_EN=0 LINEMON_EN=0     1327      139     31      286      139
-ecc            AUTOBAUD_EN=0 ECC_EN=1 LOWPWR_EN=0 LINEMON_EN=0     1426      151     28      276      151
-lowpwr         AUTOBAUD_EN=0 ECC_EN=0 LOWPWR_EN=1 LINEMON_EN=0      814       88     28      198       88
-linemon        AUTOBAUD_EN=0 ECC_EN=0 LOWPWR_EN=0 LINEMON_EN=1     1507      172     28      311      172
-all_feat       AUTOBAUD_EN=1 ECC_EN=1 LOWPWR_EN=1 LINEMON_EN=1     2720      318     31      591      318
+config         params                                          cells      dff  depth ice_LUT4  ice_DFF   fmax_MHz
+base16         AUTOBAUD_EN=0 ECC_EN=0 LOWPWR_EN=0 LINEMON_EN=0 DIV_W=16 PARITY_SUPPORT=1      889       88     25      174       88     141.78
+base8          AUTOBAUD_EN=0 ECC_EN=0 LOWPWR_EN=0 LINEMON_EN=0 DIV_W=8 PARITY_SUPPORT=1      621       72     17      116       72     142.78
+noparity16     AUTOBAUD_EN=0 ECC_EN=0 LOWPWR_EN=0 LINEMON_EN=0 DIV_W=16 PARITY_SUPPORT=0      809       82     25      167       82     124.60
+autobaud       DIV_W=16 PARITY_SUPPORT=1 AUTOBAUD_EN=1 ECC_EN=0 LOWPWR_EN=0 LINEMON_EN=0     1327      139     31      286      139      73.92
+ecc            DIV_W=16 PARITY_SUPPORT=1 AUTOBAUD_EN=0 ECC_EN=1 LOWPWR_EN=0 LINEMON_EN=0     1426      151     28      271      151     128.52
+lowpwr         DIV_W=16 PARITY_SUPPORT=1 AUTOBAUD_EN=0 ECC_EN=0 LOWPWR_EN=1 LINEMON_EN=0      814       88     28      198       88     126.25
+linemon        DIV_W=16 PARITY_SUPPORT=1 AUTOBAUD_EN=0 ECC_EN=0 LOWPWR_EN=0 LINEMON_EN=1     1532      172     27      311      172      75.71
+all_feat       DIV_W=16 PARITY_SUPPORT=1 AUTOBAUD_EN=1 ECC_EN=1 LOWPWR_EN=1 LINEMON_EN=1     2698      318     31      585      318      73.87

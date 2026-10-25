@@ -1,0 +1,34 @@
+tb_edge: DIV=4 FRAMES=4 FULL=1
+E4 back-to-back DIV=4 parity_mode=00         : PASS
+E4 back-to-back DIV=4 parity_mode=01         : PASS
+E4 back-to-back DIV=4 parity_mode=10         : PASS
+E4 back-to-back DIV=4 parity_mode=11         : PASS
+E2 reset during TX state 1                   : PASS
+E2 reset during TX state 2                   : PASS
+E2 reset during TX state 3                   : PASS
+E2 reset during TX state 4                   : PASS
+E3 reset during RX state 1                   : PASS
+E3 reset during RX state 2                   : PASS
+E3 reset during RX state 3                   : PASS
+E3 reset during RX state 4                   : PASS
+E3 reset during RX state 5                   : PASS
+E5a start glitch (< half bit) rejected       : PASS
+MARK E5b_mode0 642910000
+E5b bad stop -> frame_err, parity_mode=00    : PASS
+MARK E5b_mode1 689030000
+E5b bad stop -> frame_err, parity_mode=01    : PASS
+MARK E5b_mode2 737710000
+E5b bad stop -> frame_err, parity_mode=10    : PASS
+MARK E5b_mode3 786390000
+E5b bad stop -> frame_err, parity_mode=11    : PASS
+MARK E5c_mode1 832510000
+E5c parity error detect, parity_mode=1       : PASS
+MARK E5c_mode2 865790000
+E5c parity error detect, parity_mode=2       : PASS
+SVA antecedent hits: A1 idle=23049 A2 frame_end=30 A3 done=30 A4 accept=34 A5 rx_valid=34 A6 frame_err=5 A7 parity_err=2
+SVA-ext antecedent hits: B1 tick_period=11174 B2 start_mid=48 B2 data_mid=344 B3 reset_cycles=13
+RESULT tb_edge DIV=4 : PASS (0 failing groups, 0 errors)
+- tb/tb_edge.sv:214: Verilog $finish
+- S i m u l a t i o n   R e p o r t: Verilator 5.032 2025-01-01
+- Verilator: $finish at 899us; walltime 0.037 s; speed 23.593 ms/s
+- Verilator: cpu 0.038 s on 1 threads; alloced 57 MB

@@ -1,2 +1,6 @@
+VCD info: dumpfile waves/power_lp0.vcd opened for output.
 POWER_TB LP=0 bytes_received=40 parity_errors=0
+tb/tb_power.v:43: $finish called at 79835290000 (1ps)
+VCD info: dumpfile waves/power_lp1.vcd opened for output.
 POWER_TB LP=1 bytes_received=40 parity_errors=0
+tb/tb_power.v:43: $finish called at 79835290000 (1ps)

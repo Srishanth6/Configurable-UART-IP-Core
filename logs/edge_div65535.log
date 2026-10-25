@@ -1,0 +1,12 @@
+tb_edge: DIV=65535 FRAMES=1 FULL=0
+E4 back-to-back DIV=65535 parity_mode=00     : PASS
+E4 back-to-back DIV=65535 parity_mode=01     : PASS
+E4 back-to-back DIV=65535 parity_mode=10     : PASS
+E4 back-to-back DIV=65535 parity_mode=11     : PASS
+SVA antecedent hits: A1 idle=8388489 A2 frame_end=4 A3 done=4 A4 accept=4 A5 rx_valid=4 A6 frame_err=0 A7 parity_err=0
+SVA-ext antecedent hits: B1 tick_period=796 B2 start_mid=4 B2 data_mid=32 B3 reset_cycles=4
+RESULT tb_edge DIV=65535 : PASS (0 failing groups, 0 errors)
+- tb/tb_edge.sv:214: Verilog $finish
+- S i m u l a t i o n   R e p o r t: Verilator 5.032 2025-01-01
+- Verilator: $finish at 1s; walltime 19.904 s; speed 52.689 ms/s
+- Verilator: cpu 19.901 s on 1 threads; alloced 57 MB

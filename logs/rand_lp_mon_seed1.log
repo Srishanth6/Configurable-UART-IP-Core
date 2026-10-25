@@ -17,5 +17,5 @@ Monitor after run: frames=4 parity=0 framing=0 drift_max=1 health=100
 RESULT SEED=1 : PASS (0 failing test groups)
 - tb/tb_uart_rand.sv:266: Verilog $finish
 - S i m u l a t i o n   R e p o r t: Verilator 5.032 2025-01-01
-- Verilator: $finish at 429ms; walltime 7.827 s; speed 54.989 ms/s
-- Verilator: cpu 7.802 s on 1 threads; alloced 57 MB
+- Verilator: $finish at 429ms; walltime 7.882 s; speed 54.438 ms/s
+- Verilator: cpu 7.882 s on 1 threads; alloced 57 MB

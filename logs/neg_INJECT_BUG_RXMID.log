@@ -1,0 +1,4 @@
+tb_edge: DIV=4 FRAMES=32 FULL=1
+[1110000] %Error: uart_sva_ext.sv:62: Assertion failed in tb_edge.chk2.a_rx_mid_start: B2 start bit sampled at tick 11, expected 8
+%Error: sva/uart_sva_ext.sv:62: Verilog $stop
+Aborting...

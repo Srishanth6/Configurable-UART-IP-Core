@@ -46,5 +46,5 @@ SVA hits (monitor): A12 cycles with parity count>0 = 618107
 RESULT SEED=2026 CLK=100.0MHz : PASS (0 failing checks)
 - tb/tb_features.sv:341: Verilog $finish
 - S i m u l a t i o n   R e p o r t: Verilator 5.032 2025-01-01
-- Verilator: $finish at 268ms; walltime 11.066 s; speed 24.209 ms/s
-- Verilator: cpu 11.058 s on 1 threads; alloced 57 MB
+- Verilator: $finish at 268ms; walltime 10.620 s; speed 25.210 ms/s
+- Verilator: cpu 10.619 s on 1 threads; alloced 57 MB

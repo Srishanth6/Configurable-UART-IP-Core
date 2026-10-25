@@ -1,0 +1,4 @@
+tb_edge: DIV=4 FRAMES=32 FULL=1
+[330000] %Error: uart_sva_ext.sv:47: Assertion failed in tb_edge.chk2.a_baud_no_stall: B1b no baud tick for 5 clocks (divisor=4)
+%Error: sva/uart_sva_ext.sv:47: Verilog $stop
+Aborting...

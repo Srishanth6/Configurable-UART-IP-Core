@@ -15,5 +15,5 @@ SVA antecedent hits: A1 idle=11244282 A2 frame_end=3701 A3 done=3701 A4 accept=3
 RESULT SEED=1 : PASS (0 failing test groups)
 - tb/tb_uart_rand.sv:266: Verilog $finish
 - S i m u l a t i o n   R e p o r t: Verilator 5.032 2025-01-01
-- Verilator: $finish at 429ms; walltime 7.352 s; speed 58.406 ms/s
-- Verilator: cpu 7.346 s on 1 threads; alloced 57 MB
+- Verilator: $finish at 429ms; walltime 7.446 s; speed 57.627 ms/s
+- Verilator: cpu 7.445 s on 1 threads; alloced 57 MB

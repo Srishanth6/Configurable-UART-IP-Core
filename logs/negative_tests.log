@@ -1,10 +1,20 @@
-scripts/neg_tests.sh: line 5: 306469 Aborted                 build/neg_$bug/sim +SEED=1 > logs/neg_$bug.log 2>&1
+scripts/neg_tests.sh: line 5: 356225 Aborted                 build/neg_$bug/sim +SEED=1 > logs/neg_$bug.log 2>&1
 === INJECT_BUG: exit code 134
 [69550000] %Error: uart_sva.sv:77: Assertion failed in tb_uart_rand.chk.a_rx_valid_pulse: A5 rx_valid longer than one clock
 %Error: sva/uart_sva.sv:77: Verilog $stop
 NEG INJECT_BUG: caught by assertion (expected)
-scripts/neg_tests.sh: line 5: 306538 Aborted                 build/neg_$bug/sim +SEED=1 > logs/neg_$bug.log 2>&1
+scripts/neg_tests.sh: line 5: 356384 Aborted                 build/neg_$bug/sim +SEED=1 > logs/neg_$bug.log 2>&1
 === INJECT_BUG_TX: exit code 134
 [71530000] %Error: uart_sva.sv:62: Assertion failed in tb_uart_rand.chk.a_busy_len: A2 tx_busy length 2544, expected 2560
 %Error: sva/uart_sva.sv:62: Verilog $stop
 NEG INJECT_BUG_TX: caught by assertion (expected)
+scripts/neg_tests.sh: line 12: 356516 Aborted                 build/neg_$def/sim > logs/neg_$def.log 2>&1
+=== INJECT_BUG_BAUD: exit code 134
+[330000] %Error: uart_sva_ext.sv:47: Assertion failed in tb_edge.chk2.a_baud_no_stall: B1b no baud tick for 5 clocks (divisor=4)
+%Error: sva/uart_sva_ext.sv:47: Verilog $stop
+NEG INJECT_BUG_BAUD: caught by B1 assertion (expected)
+scripts/neg_tests.sh: line 12: 356661 Aborted                 build/neg_$def/sim > logs/neg_$def.log 2>&1
+=== INJECT_BUG_RXMID: exit code 134
+[1110000] %Error: uart_sva_ext.sv:62: Assertion failed in tb_edge.chk2.a_rx_mid_start: B2 start bit sampled at tick 11, expected 8
+%Error: sva/uart_sva_ext.sv:62: Verilog $stop
+NEG INJECT_BUG_RXMID: caught by B2 assertion (expected)
