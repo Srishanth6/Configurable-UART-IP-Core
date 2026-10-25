@@ -155,7 +155,9 @@ fig.tight_layout(); fig.savefig(f"{F}/autobaud_err.png", dpi=150); plt.close(fig
 syn = []
 for line in open(f"{TOP}/logs/synth_summary.log").read().splitlines()[1:]:
     w = line.split()
+    if w and not w[-1].isdigit(): w = w[:-1]     # drop the fmax_MHz column
     if len(w) >= 6 and w[-1].isdigit(): syn.append((w[0], int(w[-5]), int(w[-4]), int(w[-3]), int(w[-2]), int(w[-1])))
+assert syn, "no rows parsed from logs/synth_summary.log"
 fig, ax = plt.subplots(figsize=(8, 3.2))
 ax.bar([s[0] for s in syn], [s[4] for s in syn], color="#5b8bd0"); ax.set_ylabel("iCE40 SB_LUT4 count")
 for i, s in enumerate(syn): ax.text(i, s[4], str(s[4]), ha="center", va="bottom", fontsize=7)

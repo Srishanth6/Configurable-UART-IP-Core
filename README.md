@@ -192,17 +192,20 @@ What each column is:
 - **Logic depth**: longest combinational path counted in gates (`ltp -noff`). It is not a delay.
 - **iCE40 LUT4 / DFF**: `synth_ice40` technology mapping.
 - **Fmax**: nextpnr-ice40 post-place-and-route estimate for iCE40 HX8K (ct256), seed 1, I/O pins unconstrained. It is the only real timing number; no ASIC STA was done. If nextpnr is not installed the script prints `not_measured`.
-- The ECC, line-monitor and all-features rows changed slightly from the first version (e.g. all features 2720 -> 2698 cells, ECC 276 -> 271 LUT4) after setting `DIV_W`/`PARITY_SUPPORT` explicitly with `chparam`; this table is the current `logs/synth_summary.log`. The report PDF still shows the old numbers.
+- The ECC, line-monitor and all-features rows changed slightly from the first version (e.g. all features 2720 -> 2698 cells, ECC 276 -> 271 LUT4) after setting `DIV_W`/`PARITY_SUPPORT` explicitly with `chparam`; this table is the current `logs/synth_summary.log`. The report (md/docx/pdf) was regenerated with these numbers.
 
 ![LUTs](report/figs/synth_luts.png)
 
 ## How to run
 
-Requirements: Verilator 5.x, Icarus Verilog 12, Yosys 0.5x, Python 3 with matplotlib and
+Requirements: Verilator 5.032 (the version all logs were made with), Icarus Verilog 12, Yosys 0.5x, Python 3 with matplotlib and
 python-docx, Graphviz, and LibreOffice (the last one only for the PDF). nextpnr-ice40 is optional (Fmax column).
 
 Every target creates `build/`, `logs/` and `waves/` itself, so a fresh clone works with `make all`.
 CI (`.github/workflows/ci.yml`) installs the tools on Ubuntu 24.04 and runs the same targets on every push.
+Ubuntu 24.04's apt Verilator is 5.020, so CI instead builds Verilator v5.032 from source once and caches it
+(`actions/cache`), and fails if `verilator --version` is not 5.032. matplotlib comes from apt `python3-matplotlib`.
+If your `python3` has no matplotlib, point make at one that does: `make all PYTHON=/path/to/python3`.
 
 ```bash
 make baud loopback        # iverilog tests

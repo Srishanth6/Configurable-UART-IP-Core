@@ -151,7 +151,8 @@ A drift of up to 2/16 bit is treated as normal jitter, because the synchronizer 
 | Same with LOWPWR_EN=1, LINEMON_EN=1 | tb_uart_rand.sv -G... | same |
 | Auto-baud, ECC, monitor | tb_features.sv (Verilator) | 3 seeds x 3 clock freqs |
 | Power proxy | tb_power.v + vcd_toggles.py | VCD toggle counting |
-| Negative tests | tb_uart_rand + `+define+INJECT_BUG(_TX)` | must fail |
+| Edge cases: divisor 1/2/3/16/255/65535, reset in every TX and RX state, all 4 parity codes back-to-back, start glitches, bad stop, bad parity | tb_edge.sv (Verilator) + uart_sva_ext.sv | scoreboard + SVA |
+| Negative tests | tb_uart_rand + `+define+INJECT_BUG(_TX)`; tb_edge + `+define+INJECT_BUG_BAUD` / `INJECT_BUG_RXMID` | must fail |
 
 The random tests use my own xorshift32 generator, seeded by `+SEED`. The seeds were 1, 42 and 2026. The line BFM generates bit times in real nanoseconds, independent of the DUT clock. That makes it possible to run the line at, for example, 1.08 times the DUT's baud rate to test mismatch.
 
@@ -257,6 +258,31 @@ With low power on, idle activity drops by about 5 orders of magnitude, and total
 
 For the noise case, the injected error counts, the observed error pulses and the monitor counters agreed exactly for all three seeds (seed 42: 45/24, seed 2026: 40/17). The health score comes out as a reasonable early-warning signal, because drift rises before actual errors appear.
 
+### 5.7 Edge-case testbench (tb_edge.sv)
+
+`make edge` runs tb_edge with divisor 1, 2, 3, 16 and 255 (all groups) and 65535 (back-to-back groups only). All six runs ended `RESULT tb_edge ... : PASS (0 failing groups, 0 errors)` (`logs/edge_div*.log`). Groups in each full run:
+
+- E4: 32 back-to-back frames with `tx_start` held high, in parity codes 00, 01, 10 and 11;
+- E2: reset in TX states START, DATA, PARITY and STOP, then a good frame;
+- E3: reset in RX states START, DATA, PARITY, STOP and BREAK, with no byte allowed out, then a good frame;
+- E5a: start glitches from 1 clock to just under half a bit, which must be ignored;
+- E5b: stop bit = 0 in all four parity codes, which must give `frame_err` without `rx_valid`;
+- E5c: a wrong parity bit for even and odd parity, which must give `parity_err`.
+
+Waveforms from a traced run at DIV=4 (`make waves_err`, `waves/tb_edge_err.vcd`):
+
+![TX/RX timing](figs/wave_txrx_timing.png)
+
+*Figure 13: back-to-back frames, DUT tx looped to rx.*
+
+![Parity error](figs/wave_parity_err.png)
+
+*Figure 14: 0x96 with a wrong even-parity bit (parity_err with rx_valid), then a good 0x97.*
+
+![Framing error](figs/wave_frame_err.png)
+
+*Figure 15: 0xC9 with stop bit 0 and the line held low; frame_err pulses, no rx_valid.*
+
 ## 6. Assertions (SVA)
 
 `sva/uart_sva.sv` is bound into the DUT. The table gives antecedent hit counts for tb_uart_rand, seed 1. For the feature assertions, the counts come from tb_features, seed 1, 50 MHz.
@@ -275,36 +301,50 @@ For the noise case, the injected error counts, the observed error pulses and the
 | A11 | lock gives a non-zero divisor | 8 |
 | A12 | health ≤ 100, counters never decrease | 625,787 |
 
+`sva/uart_sva_ext.sv` adds four checks, used by tb_edge. Hits are for DIV=16 (`logs/edge_div16.log`):
+
+| ID | Property | Hits |
+|---|---|---|
+| B1/B1b | every baud tick comes exactly `divisor` clocks after the previous one, never later | 29,873 ticks |
+| B2 | RX samples the start bit 8 ticks after detection, data bit n at 8+16(n+1) ticks | 160 start / 1,240 data samples |
+| B3 | while reset is held and at release: tx=1, not busy, FSMs idle, no rx_valid/parity_err/frame_err | 13 reset cycles |
+| B4 | `DIV_W` in 1..32 (elaboration), `divisor != 0` (run time) | every cycle |
+
 **Negative tests** (`make neg`, `logs/negative_tests.log`):
 
 - `+define+INJECT_BUG` stretches rx_valid to 2 cycles. It was caught by A5 at 69.55 µs, with *"A5 rx_valid longer than one clock"*. The simulator aborted with exit code 134.
 - `+define+INJECT_BUG_TX` makes the stop bit one tick short. It was caught by A2 at 71.53 µs, with *"tx_busy length 2544, expected 2560"*. Exit code 134.
+- `+define+INJECT_BUG_BAUD` makes the baud counter off by one. It was caught by B1b at 0.33 µs, with *"B1b no baud tick for 5 clocks (divisor=4)"*. Exit code 134.
+- `+define+INJECT_BUG_RXMID` starts RX sampling 3/16 bit late. It was caught by B2 at 1.11 µs, with *"B2 start bit sampled at tick 11, expected 8"*. Exit code 134.
 
 The negative tests show that the assertions are actually being evaluated, not passing vacuously.
 
-## 7. Synthesis (Yosys 0.52)
+## 7. Synthesis (Yosys 0.52, nextpnr-ice40)
 
 I used two flows:
 
 1. **Generic:** `synth -flatten; abc -g cmos2`. This gives NAND/NOR/NOT gates plus flops. Logic depth comes from `ltp -noff`, which is the longest path in cells, flop to flop.
 2. **FPGA:** `synth_ice40`, to get a realistic count of LUT4 cells.
+3. **Timing:** nextpnr-ice40 place and route for iCE40 HX8K (ct256), seed 1, pins unconstrained. Its Fmax estimate is the only real timing number here.
 
-| Config | Generic cells | Flops | Depth | iCE40 LUT4 | iCE40 DFF |
-|---|---|---|---|---|---|
-| base, DIV_W=16, parity | 889 | 88 | 25 | 174 | 88 |
-| base, DIV_W=8 | 621 | 72 | 17 | 116 | 72 |
-| base, no parity | 809 | 82 | 25 | 167 | 82 |
-| + auto-baud | 1327 | 139 | 31 | 286 | 139 |
-| + ECC | 1426 | 151 | 28 | 276 | 151 |
-| + low power | 814 | 88 | 28 | 198 | 88 |
-| + line monitor | 1507 | 172 | 28 | 311 | 172 |
-| all features | 2720 | 318 | 31 | 591 | 318 |
+Every feature row uses DIV_W=16 and parity support, so it differs from the first row only by the named feature.
+
+| Config | Generic cells | Flops | Depth (gates) | iCE40 LUT4 | iCE40 DFF | Fmax (MHz) |
+|---|---|---|---|---|---|---|
+| base, DIV_W=16, parity | 889 | 88 | 25 | 174 | 88 | 141.78 |
+| base, DIV_W=8 | 621 | 72 | 17 | 116 | 72 | 142.78 |
+| base, no parity | 809 | 82 | 25 | 167 | 82 | 124.60 |
+| + auto-baud | 1327 | 139 | 31 | 286 | 139 | 73.92 |
+| + ECC | 1426 | 151 | 28 | 271 | 151 | 128.52 |
+| + low power | 814 | 88 | 28 | 198 | 88 | 126.25 |
+| + line monitor | 1532 | 172 | 27 | 311 | 172 | 75.71 |
+| all features | 2698 | 318 | 31 | 585 | 318 | 73.87 |
 
 The generic cell counts include 4 `$scopeinfo` bookkeeping cells.
 
 ![LUTs](figs/synth_luts.png)
 
-*Figure 13: iCE40 LUT count per configuration.*
+*Figure 16: iCE40 LUT count per configuration.*
 
 Observations:
 
@@ -312,7 +352,8 @@ Observations:
 - Removing parity saves only 6 flops and 7 LUTs.
 - The line monitor is the most expensive feature because of its five 16-bit counters.
 - Low power adds no flops but costs 24 LUTs for the enable logic. Oddly, ABC gave fewer generic cells for it. ABC results do vary a little with the netlist, so I would not read anything into that.
-- Without a timing library, logic depth is only a rough proxy for speed. I did not run timing analysis (nextpnr/STA).
+- Logic depth is a gate count, not a delay. The Fmax column is the measured iCE40 estimate: the base core reaches about 142 MHz, while auto-baud and the line monitor bring it down to about 74-76 MHz, so their wide counters/comparators set the critical path. No ASIC STA was done.
+- The removal of parity lowers Fmax (124.60 vs 141.78 MHz) even though it removes logic; place-and-route results vary with the netlist and seed, so small Fmax differences should not be over-read.
 
 ## 8. Limitations
 
@@ -320,6 +361,7 @@ Observations:
 - Auto-baud needs exactly 0x55 as 8N1, and its accuracy is limited by integer divisors at high baud/clock ratios: 0/40 bytes at 921600 baud with a 50 MHz clock.
 - ECC halves the throughput (two frames per byte), and pairing depends on a timeout, so a lost frame can drop a byte. That is reported as `dropped`, not corrected.
 - The power result is a toggle count from RTL simulation only. It is not a power estimate.
+- Fmax is a nextpnr estimate with unconstrained pins, not a board result.
 - All verification is simulation. There was no formal verification, no gate-level simulation and no FPGA hardware test. Coverage is measured as test-case counts and assertion hit counts, not as tool-collected functional coverage.
 - The health score formula is my own heuristic.
 
@@ -337,12 +379,13 @@ The UART core works as designed, as the saved logs show:
 
 - 772/772 loopback bytes across the three parity modes;
 - 12/12 random test groups for three seeds in two configurations;
+- 6/6 edge-case runs (divisor 1 to 65535, reset in every TX/RX state, malformed frames);
 - auto-baud locked to the nearest divisor at every point tested;
 - SECDED corrected every single flip and detected every double flip;
 - the low-power mode cut idle switching activity to almost nothing;
 - the line monitor counters matched the injected errors exactly.
 
-The assertions caught both deliberately injected bugs. With every feature enabled, the core takes 591 iCE40 LUTs, compared with 174 for the base core.
+The assertions caught all four deliberately injected bugs. With every feature enabled, the core takes 585 iCE40 LUTs and reaches 73.87 MHz on iCE40 HX8K, compared with 174 LUTs and 141.78 MHz for the base core.
 
 ## Appendix: how to reproduce
 
@@ -352,6 +395,8 @@ make rand rand_feat         # Verilator random TB, seeds 1 42 2026
 make neg                    # negative assertion tests (must fail)
 make features               # auto-baud / ECC / monitor, 3 seeds x 3 clocks
 make power                  # toggle-count proxy
-make synth                  # Yosys table
+make edge                   # edge cases + extra SVA
+make waves_err              # error waveforms
+make synth                  # Yosys + nextpnr table
 make report                 # figures + this PDF
 ```
