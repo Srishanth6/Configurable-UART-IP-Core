@@ -13,8 +13,27 @@ jobs:
       - name: Install tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends iverilog verilator yosys nextpnr-ice40 fpga-icestorm \
-            python3 python3-matplotlib make g++
+          # Verilator is NOT taken from apt (24.04 ships 5.020); 5.032 is built below so CI matches the logs.
+          sudo apt-get install -y --no-install-recommends iverilog yosys nextpnr-ice40 fpga-icestorm \
+            python3 python3-matplotlib make g++ \
+            git autoconf flex bison help2man perl libfl-dev zlib1g-dev ccache
+      - name: Cache Verilator 5.032
+        id: vcache
+        uses: actions/cache@v4
+        with:
+          path: ~/verilator-5.032
+          key: verilator-5.032-${{ runner.os }}-ubuntu-24.04-v1
+      - name: Build Verilator 5.032 (cache miss only)
+        if: steps.vcache.outputs.cache-hit != 'true'
+        run: |
+          git clone --depth 1 --branch v5.032 https://github.com/verilator/verilator.git /tmp/verilator
+          cd /tmp/verilator && autoconf && ./configure --prefix=$HOME/verilator-5.032 && make -j$(nproc) && make install
+      - name: Tool versions
+        run: |
+          echo "$HOME/verilator-5.032/bin" >> $GITHUB_PATH
+          export PATH=$HOME/verilator-5.032/bin:$PATH
+          verilator --version | grep -q "^Verilator 5.032" || { echo "wrong Verilator"; exit 1; }
+          python3 -c "import matplotlib; print('matplotlib', matplotlib.__version__)"
           iverilog -V 2>&1 | head -1; verilator --version; yosys -V; nextpnr-ice40 --version || true
       - name: Directed tests (Icarus)
         run: make baud loopback

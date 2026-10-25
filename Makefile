@@ -1,6 +1,7 @@
 # UART IP core - run everything from here. Logs go to logs/.
 SEEDS ?= 1 42 2026
 SHELL := /bin/bash
+PYTHON ?= python3
 .SHELLFLAGS := -o pipefail -c
 RTL := $(wildcard rtl/*.v)
 
@@ -36,7 +37,7 @@ waves_err:
 	mkdir -p build logs waves report/figs
 	scripts/vbuild.sh tb_edge build/edge_tr -GDIV=4 -GFRAMES=4 --trace +define+DUMP sva/uart_sva_ext.sv >/dev/null
 	build/edge_tr/sim 2>&1 | tee logs/edge_waves.log
-	python3 scripts/err_waves.py
+	$(PYTHON) scripts/err_waves.py
 # negative tests: these MUST fail, the script checks that they do
 neg:
 	mkdir -p build logs
@@ -48,12 +49,12 @@ features:
 power:
 	mkdir -p build logs waves syn/out
 	for lp in 0 1; do iverilog -g2012 -P tb_power.LP=$$lp -o build/tbp$$lp tb/tb_power.v $(RTL) && vvp -n build/tbp$$lp; done 2>&1 | tee logs/power_sim.log
-	python3 scripts/vcd_toggles.py waves/power_lp0.vcd waves/power_lp1.vcd 2>&1 | tee logs/power_toggles.log
+	$(PYTHON) scripts/vcd_toggles.py waves/power_lp0.vcd waves/power_lp1.vcd 2>&1 | tee logs/power_toggles.log
 	gzip -f waves/power_lp*.vcd
 synth:
 	mkdir -p build logs waves syn/out
 	scripts/synth_all.sh 2>&1 | tee logs/synth_summary.log
 report:
-	python3 report/make_figs.py && report/build_report.sh
+	$(PYTHON) report/make_figs.py && report/build_report.sh
 clean:
 	rm -rf build/*
