@@ -1,0 +1,48 @@
+name: ci
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  sim-and-synth:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends iverilog verilator yosys nextpnr-ice40 fpga-icestorm \
+            python3 python3-matplotlib make g++
+          iverilog -V 2>&1 | head -1; verilator --version; yosys -V; nextpnr-ice40 --version || true
+      - name: Directed tests (Icarus)
+        run: make baud loopback
+      - name: Random tests (Verilator + SVA)
+        run: make rand rand_feat
+      - name: Negative tests (injected bugs must be caught)
+        run: make neg
+      - name: Optional-feature tests
+        run: make features
+      - name: Edge cases + extra SVA
+        run: make edge
+      - name: Low-power toggle proxy
+        run: make power
+      - name: Waveform evidence
+        run: make waves_err
+      - name: Synthesis (Yosys generic + iCE40, nextpnr timing)
+        run: make synth
+      - name: Fail if any log reports FAIL
+        run: |
+          ! grep -lE "RESULT.*: FAIL|NOT CAUGHT" logs/*.log
+      - name: Upload logs and figures
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-and-figs
+          path: |
+            logs/
+            syn/out/*.stat
+            syn/out/*_pnr.log
+            report/figs/wave_*_err.png
+            report/figs/wave_txrx_timing.png
