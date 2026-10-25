@@ -5,3 +5,6 @@ __pycache__/
 syn/out/*.log
 # big power-proxy dumps (regenerate with `make power`)
 waves/power_lp*.vcd*
+syn/out/*.json
+syn/out/*_pnr.log
+waves/tb_edge_err.vcd
