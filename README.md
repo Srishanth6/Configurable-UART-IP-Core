@@ -144,6 +144,22 @@ make report               # figures + PDF
 
 CI (`.github/workflows/ci.yml`) installs the tools on Ubuntu 24.04 and runs the same targets on every push. Ubuntu 24.04's apt Verilator is 5.020, so CI builds Verilator v5.032 from source once, caches it, and fails if `verilator --version` is not 5.032.
 
+**Latest CI run:** [run 40158770593](https://github.com/Srishanth6/Configurable-UART-IP-Core/actions/runs/40158770593) on commit `7e4565c` passed every stage ([all runs](https://github.com/Srishanth6/Configurable-UART-IP-Core/actions/workflows/ci.yml)).
+
+| CI stage | Result |
+|---|---|
+| Directed tests (Icarus) | Pass |
+| Random tests (Verilator + SVA) | Pass |
+| Negative tests (injected bugs must be caught) | Pass |
+| Optional-feature tests | Pass |
+| Edge cases + extra SVA | Pass |
+| Low-power toggle proxy | Pass |
+| Waveform evidence | Pass |
+| Synthesis (Yosys generic + iCE40, nextpnr timing) | Pass |
+| Fail if any log reports FAIL | Pass |
+| Upload logs and figures | Pass |
+
+
 ### Run on Windows
 
 1. Install Icarus Verilog (which includes GTKWave) and make sure `iverilog`, `vvp` and `gtkwave` are on PATH.
