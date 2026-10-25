@@ -191,17 +191,7 @@ Selected: Verilog-2005 RTL and SystemVerilog testbenches and assertions. Icarus 
 - `BAUD_TEST checks=201 errors=0 -> PASS`
 - Loopback: none 256/256, even 256/256, odd 256/256. Including 4 extra frames, that is `frames_checked=772 pass=772 fail=0 -> PASS`.
 
-![Loopback waveform](figs/wave_loopback.png)
-
-*Figure 7: Back-to-back frames from waves/tb_loopback.vcd. rx_valid fires at the mid-stop sample, before tx_done.*
-
-![Zoom](figs/wave_zoom.png)
-
-*Figure 8: Zoom on a start bit: 16x ticks, and the RX tick counter loaded with 8 on the start edge (mid-bit alignment).*
-
-![Even parity frame](figs/wave_even.png)
-
-*Figure 9: One 8E1 frame from the same VCD.*
+The loopback run is shown in GTKWave in Figure G1 (Section 9.8): back-to-back frames, with `rx_valid` firing at the mid-stop sample, before `tx_done`.
 
 ### 9.2 Randomized testbench (tb_uart_rand.sv, DIV=16, 50 MHz)
 
@@ -240,7 +230,7 @@ The locked divisor was always the nearest integer to the ideal value: |div-ideal
 
 ![Auto-baud error](figs/autobaud_err.png)
 
-*Figure 10: Rate error after lock.*
+*Figure 7: Rate error after lock.*
 
 ### 9.4 SECDED (F2)
 
@@ -267,11 +257,9 @@ With low power on, idle activity drops by about 5 orders of magnitude, and total
 
 ![Toggles](figs/toggles.png)
 
-*Figure 11: VCD toggle counts.*
+*Figure 8: VCD toggle counts.*
 
-![Low power wave](figs/wave_lowpower.png)
-
-*Figure 12: In power_lp1.vcd, the ticks run only around frames.*
+Figure G4 (Section 9.8) shows `power_lp1.vcd` in GTKWave: the baud counters stop between frames.
 
 ### 9.6 Line monitor (F4), seed 1, 50 MHz
 
@@ -297,19 +285,7 @@ For the noise case, the injected error counts, the observed error pulses and the
 - E5b: stop bit = 0 in all four parity codes, which must give `frame_err` without `rx_valid`;
 - E5c: a wrong parity bit for even and odd parity, which must give `parity_err`.
 
-Waveforms from a traced run at DIV=4 (`make waves_err`, `waves/tb_edge_err.vcd`):
-
-![TX/RX timing](figs/wave_txrx_timing.png)
-
-*Figure 13: back-to-back frames, DUT tx looped to rx.*
-
-![Parity error](figs/wave_parity_err.png)
-
-*Figure 14: 0x96 with a wrong even-parity bit (parity_err with rx_valid), then a good 0x97.*
-
-![Framing error](figs/wave_frame_err.png)
-
-*Figure 15: 0xC9 with stop bit 0 and the line held low; frame_err pulses, no rx_valid.*
+The parity-error and framing-error cases from a traced run at DIV=4 (`make waves_err`, `waves/tb_edge_err.vcd`) are shown in GTKWave in Figures G2 and G3 (Section 9.8): 0x96 with a wrong even-parity bit gives `parity_err` with `rx_valid`, and 0xC9 with stop bit 0 gives `frame_err` with no `rx_valid`.
 
 ### 9.8 GTKWave screenshots
 
@@ -341,13 +317,9 @@ The injected-bug run (`make bug_demo`, `logs/bug_demo.log`) stops at 1.11 µs wi
 
 *Figure G4: GTKWave on Windows 11, low-power mode: baud counters stop between frames; simulated with Icarus Verilog 12 on Windows (power_lp1.vcd).*
 
-![Terminal: make bug_demo](figs/gtkwave_bug_rxmid_terminal.png)
-
-*Figure G5: terminal running `make bug_demo`; the SVA error from B2.*
-
 ![GTKWave injected bug](figs/gtkwave_bug_rxmid.png)
 
-*Figure G6: GTKWave on Windows 11 at the B2 failure (tb_edge_bug_rxmid.vcd, simulated with Verilator 5.032 on Linux).*
+*Figure G5: GTKWave on Windows 11 at the B2 failure (tb_edge_bug_rxmid.vcd, simulated with Verilator 5.032 on Linux).*
 
 ### 9.9 Assertions (SVA)
 
@@ -429,7 +401,7 @@ The generic cell counts include 4 `$scopeinfo` bookkeeping cells.
 
 ![LUTs](figs/synth_luts.png)
 
-*Figure 16: iCE40 LUT count per configuration.*
+*Figure 9: iCE40 LUT count per configuration.*
 
 Observations:
 

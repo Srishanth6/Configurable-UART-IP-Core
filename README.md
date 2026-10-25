@@ -134,7 +134,7 @@ make neg                  # injected-bug tests; the assertions must fire
 make features             # auto-baud / ECC / monitor at 3 clocks
 make power                # VCD toggle-count proxy
 make edge                 # divisor limits, reset in every state, parity codes, bad frames
-make waves_err            # traced run -> TX/RX, parity and framing error plots
+make waves_err            # traced run -> waves/tb_edge_err.vcd (parity/framing error views)
 make bug_demo             # injected RXMID bug, B2 must fire; writes waves/tb_edge_bug_rxmid.vcd
 make gtkwave_shots        # GTKWave screenshots -> report/figs/gtkwave_*.png (needs X / xvfb-run)
 make synth                # Yosys + nextpnr table -> logs/synth_summary.log
@@ -213,15 +213,6 @@ The random TB (seed 1) covers:
 
 ### Waveforms
 
-#### Waveforms (from `waves/tb_loopback.vcd`)
-![Loopback](report/figs/wave_loopback.png)
-![Start bit zoom](report/figs/wave_zoom.png)
-
-#### Error waveforms (from `waves/tb_edge_err.vcd`, `make waves_err`, DIV=4)
-![TX/RX timing](report/figs/wave_txrx_timing.png)
-![Parity error](report/figs/wave_parity_err.png)
-![Framing error](report/figs/wave_frame_err.png)
-
 #### GTKWave screenshots
 
 These are real screenshots of GTKWave 3.3.121 with the saved VCDs open, not plots. Each view has a save file in `waves/` (signals, hex radix for buses, zoom and marker), so it can be reopened with `gtkwave <vcd> <gtkw>`. `make gtkwave_shots` regenerates the VCDs and the screenshots (it needs an X display, or run it under `xvfb-run`). `waves/tb_edge_err.vcd` is not committed (8.7 MB); `make waves_err` recreates it.
@@ -252,13 +243,9 @@ The injected-bug run (`make bug_demo`, `logs/bug_demo.log`) stops at 1.11 µs wi
 
 *Figure G4: GTKWave on Windows 11, low-power mode: baud counters stop between frames; simulated with Icarus Verilog 12 on Windows (power_lp1.vcd).*
 
-![Terminal: make bug_demo](report/figs/gtkwave_bug_rxmid_terminal.png)
-
-*Figure G5: terminal running `make bug_demo`; the SVA error from B2.*
-
 ![GTKWave injected bug](report/figs/gtkwave_bug_rxmid.png)
 
-*Figure G6: GTKWave on Windows 11 at the B2 failure (tb_edge_bug_rxmid.vcd, simulated with Verilator 5.032 on Linux).*
+*Figure G5: GTKWave on Windows 11 at the B2 failure (tb_edge_bug_rxmid.vcd, simulated with Verilator 5.032 on Linux).*
 
 ### Feature results
 
