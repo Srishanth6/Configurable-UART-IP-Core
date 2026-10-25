@@ -6,6 +6,10 @@
 # Needs: gtkwave, imagemagick, xdotool and an X display ($DISPLAY or Xvfb).
 # Reproduce one view by hand:  gtkwave waves/<vcd> waves/<name>.gtkw
 set -e
+# DARK=1: reuse the existing waves/*.gtkw unchanged, dark GTK theme + waves/dark.gtkwaverc,
+#         dark xterm, output report/figs/gtkwave_dark_*.png
+PFX=""; GTKENV=""; GTKRC=""; XTC=""
+if [ -n "$DARK" ]; then PFX="dark_"; GTKENV="env GTK_THEME=Adwaita:dark"; GTKRC="-r waves/dark.gtkwaverc"; XTC="-bg black -fg white"; fi
 cd "$(dirname "$0")/.."
 mkdir -p report/figs waves build
 : "${DISPLAY:?need an X display (e.g. run under xvfb-run -s '-screen 0 1280x800x24')}"
@@ -14,7 +18,7 @@ mkdir -p report/figs waves build
 shot() {
   local name=$1 vcd=$2 t0=$3 t1=$4 mk=$5; shift 5
   local g=waves/$name.gtkw tcl=build/$name.tcl
-  {
+  if [ -z "$DARK" ]; then {
     echo "[*] GTKWave save file for $vcd (scripts/gtkwave_shots.sh)"
     echo "[dumpfile] \"$PWD/$vcd\""
     echo "[savefile] \"$PWD/$g\""
@@ -29,13 +33,13 @@ shot() {
       case ${s%%:*} in h) echo "@22";; b) echo "@28";; d) echo "@24";; esac
       echo "${s#*:}"
     done
-  } > "$g"
+  } > "$g"; fi
   cat > "$tcl" <<T
 gtkwave::setZoomRangeTimes $t0 $t1
 gtkwave::setMarker $mk
-gtkwave::/File/Write_Save_File
 T
-  gtkwave -S "$tcl" "$vcd" "$g" >build/$name.gtkwave.log 2>&1 &
+  [ -n "$DARK" ] || echo "gtkwave::/File/Write_Save_File" >> "$tcl"
+  $GTKENV gtkwave $GTKRC -S "$tcl" "$vcd" "$g" >build/$name.gtkwave.log 2>&1 &
   local pid=$!
   local wid=""
   for i in $(seq 1 120); do
@@ -46,12 +50,12 @@ T
   xdotool windowsize $wid 1280 800 windowmove $wid 40 40 windowactivate --sync $wid 2>/dev/null || true
   sleep ${SHOT_WAIT:-6}
   # -frame keeps the window-manager title bar, like a normal desktop screenshot
-  import -window "$(xdotool getwindowfocus 2>/dev/null || echo $wid)" -frame report/figs/gtkwave_$name.png 2>/dev/null \
-    || import -window $wid -frame report/figs/gtkwave_$name.png
+  import -window "$(xdotool getwindowfocus 2>/dev/null || echo $wid)" -frame report/figs/gtkwave_$PFX$name.png 2>/dev/null \
+    || import -window $wid -frame report/figs/gtkwave_$PFX$name.png
   kill $pid 2>/dev/null || true; wait $pid 2>/dev/null || true
   # fix the paths in the saved file so it works from the repo root on any machine
-  sed -i "s#\"$PWD/#\"#" "$g"
-  echo "gtkwave_$name.png  <- $vcd  [$t0, $t1] ps, marker $mk ps"
+  [ -n "$DARK" ] || sed -i "s#\"$PWD/#\"#" "$g"
+  echo "gtkwave_$PFX$name.png  <- $vcd  [$t0, $t1] ps, marker $mk ps"
 }
 
 E=tb_edge
@@ -81,13 +85,13 @@ shot bug_rxmid waves/tb_edge_bug_rxmid.vcd 0 1120000 1100000 \
 
 # real terminal running the injected-bug make target
 rm -f build/bug_demo.done
-xterm -geometry 110x30+40+40 -fa Monospace -fs 11 -T "Terminal - make bug_demo" \
+xterm $XTC -geometry 110x30+40+40 -fa Monospace -fs 11 -T "Terminal - make bug_demo" \
   -e bash -c 'echo "\$ make bug_demo"; make --no-print-directory bug_demo; echo; echo "[make bug_demo exited with status $?]"; touch build/bug_demo.done; sleep 600' &
 xp=$!
 for i in $(seq 1 180); do [ -f build/bug_demo.done ] && break; sleep 1; done
 sleep 2
 xw=$(xdotool search --onlyvisible --pid $xp | tail -1)
 [ -n "$xw" ] || { echo "no xterm window"; kill $xp; exit 1; }
-import -window $xw -frame report/figs/gtkwave_bug_rxmid_terminal.png
+import -window $xw -frame report/figs/gtkwave_${PFX}bug_rxmid_terminal.png
 kill $xp 2>/dev/null || true
-echo "gtkwave_bug_rxmid_terminal.png <- xterm running make bug_demo"
+echo "gtkwave_${PFX}bug_rxmid_terminal.png <- xterm running make bug_demo"

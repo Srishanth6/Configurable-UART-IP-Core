@@ -1,0 +1,30 @@
+# GTKWave colours for a dark wave window (used by DARK=1 scripts/gtkwave_shots.sh)
+color_back 000000
+color_grid 202020
+color_grid2 303030
+color_time ffffff
+color_timeb 000000
+color_value ffffff
+color_0 00ff00
+color_1 00ff00
+color_trans 00ff00
+color_mid 00ff00
+color_vbox 00ff00
+color_vtrans 00ff00
+color_x ff0000
+color_xfill 400000
+color_u 00ffff
+color_ufill 004040
+color_mark ffff00
+color_marker ffffff
+color_baseline ffffff
+color_umark ff8080
+color_normal ffffff
+# signal-name pane
+color_white 101010
+color_black e0e0e0
+color_ltgray 303030
+color_dkgray 909090
+color_ltblue 3050a0
+color_dkblue 80a0ff
+color_highlight 3050a0
