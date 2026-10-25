@@ -1,44 +1,66 @@
 # Design and Verification of a Configurable UART IP Core
 
 **Author:** Srishanth, ECE, CBIT  
-**Tools:** Verilator 5.032, Icarus Verilog 12, Yosys 0.52, Python/matplotlib, Graphviz  
+**Tools:** Verilator 5.032, Icarus Verilog 12, Yosys 0.52, nextpnr-ice40, GTKWave 3.3.121, Python/matplotlib, Graphviz  
 **Date:** October 2026
 
-## Abstract
+## 1. Title of Problem
 
-This report covers a UART IP core that I wrote from scratch in Verilog and verified with self-checking testbenches. The core has a runtime-programmable 16x oversampling baud generator, a transmitter with none/even/odd parity, and a receiver. The receiver has a two-flop synchronizer, mid-bit sampling, start-bit glitch rejection, and parity and framing error flags. On top of this I added four optional, parameter-enabled features:
+Design and verification of a configurable UART IP core in Verilog, with optional auto-baud, SECDED error correction, a low-power mode and a line-quality monitor, checked with SVA assertions and compared by Yosys/nextpnr synthesis.
 
-- auto-baud detection from a 0x55 sync character;
-- Hamming SECDED(13,8) protection spread over two frames;
-- a low-power mode that clock-enables the baud counters and wakes on a start edge;
-- a line-quality monitor with error counters, bit-timing drift and a 0-100 health score.
+## 2. Real-Life Application
 
-Verification uses directed and randomized SystemVerilog testbenches with fixed seeds, a scoreboard, and 12 SVA properties checked by Verilator with `--assert`. Two deliberately injected RTL bugs are caught by the assertions. Every test listed in this report passed, and the logs are in `logs/`. Yosys gives cell counts and logic depth for eight parameter configurations. Every number here comes from a log file in the project. Nothing is estimated.
+Almost every microcontroller, FPGA board, GPS module and Bluetooth module has a UART, and it is usually the first link used to talk to a board (debug console, bootloader, sensor data). In practice the link has problems that a minimal UART does not handle: the two sides may not know each other's baud rate, long or noisy cables flip bits, a battery-powered device wastes power while the line sits idle, and there is no easy way to see that a link is getting worse before bytes are lost. This project builds a UART core where each of these problems is handled by a feature that can be switched on with a parameter, so a small design does not pay for features it does not use.
 
-## 1. Introduction to UART
+## 3. Problem Statement
 
-A UART sends bytes serially without a shared clock. Both sides agree on a baud rate in advance. The line idles high, and each frame looks like this:
+Design a UART transmitter and receiver in synthesizable Verilog with a runtime-programmable baud rate and none/even/odd parity, and add four optional features: auto-baud detection from a 0x55 sync character (`AUTOBAUD_EN`), Hamming SECDED(13,8) protection (`ECC_EN`), clock-enable based low-power idle (`LOWPWR_EN`) and a line-quality monitor (`LINEMON_EN`). The core has to be verified with self-checking testbenches and SVA assertions, the assertions themselves have to be shown to fail on injected bugs, and the cost of each feature has to be measured with synthesis. There is no FPGA board in this project, so all results come from simulation and synthesis tools, and every number in this report is copied from a log in `logs/`.
 
-- one **start bit** (0);
-- **8 data bits**, LSB first;
-- an optional **parity bit** (even or odd);
-- one **stop bit** (1).
+## 4. Engineering Constraints
 
-The receiver detects the falling edge of the start bit. It then samples each bit near its middle, which leaves about ±50% of a bit of timing margin. Across a whole frame this works out to roughly ±4-5% total baud mismatch. In practice the safe figure is quoted as ±2% per side.
+- **Frame format:** 1 start bit, 8 data bits (LSB first), optional parity bit, 1 stop bit; line idles high.
+- **Clock and baud:** tested at 50, 100 and 133.3 MHz system clock and 2400 to 921600 baud. The tick is 16x the baud rate, so `divisor = f_clk / (16 * baud)`; divisors 1 to 65535 were tested (`DIV_W=16`).
+- **Baud tolerance:** the receiver has to accept ±2% and ±3% baud mismatch with no bad frames (measured: 0 bad frames in 500 frames each, all three seeds).
+- **Asynchronous input:** `rx` is not synchronous to `clk`, so it needs a synchronizer before any logic.
+- **Area:** a disabled feature must not be synthesized at all.
+- **Timing:** no fixed Fmax target was given. Fmax is reported from nextpnr-ice40 for iCE40 HX8K as an estimate.
+- **Accuracy requirement:** every self-checking test must end with 0 errors, and every injected bug must be caught by an assertion.
+- **Hardware/software limitation:** no FPGA board, so there is no hardware test. Verilator tests ran on Linux (the box and GitHub Actions, Ubuntu 24.04); the Icarus tests and GTKWave were also run on my Windows 11 laptop. No ASIC cell library, so no real area or power numbers.
 
-![UART frame](figs/frame.png)
+## 5. RTL / Verification Concepts Required
 
-*Figure 1: Frame format (0xA5, 8E1) with the mid-bit sample points used by my receiver.*
+☑ Finite state machines (TX, RX, auto-baud)  
+☑ 16x oversampling and mid-bit sampling  
+☑ Two-flop synchronizer for an asynchronous input  
+☑ Parity and Hamming SECDED coding  
+☑ Clock-enable based low-power design  
+☑ Parameterized RTL with generate blocks  
+☑ Self-checking testbenches with a scoreboard  
+☑ Seeded randomized stimulus  
+☑ SystemVerilog Assertions (SVA), including negative tests  
+☑ Logic synthesis and FPGA place and route  
+☐ Formal verification  
+☐ Functional coverage (covergroups)  
+☐ Gate-level simulation  
+☐ Other: __________
 
-## 2. Architecture
+## 6. Proposed Architecture
+
+Input → Synchronization → Oversampling → FSM → Output
+
+Implemented chain: `tx_start`/`tx_data` → [optional SECDED encoder, two frames] → TX baud generator + TX FSM → `tx` line → `rx` line → 2-flop synchronizer → [optional auto-baud measures 0x55 and sets the divisor] → RX baud generator + RX FSM (mid-bit sampling) → [optional SECDED decoder] → `rx_data`/`rx_valid`, `parity_err`, `frame_err`, with the optional line monitor watching the RX outputs.
 
 ![Block diagram](figs/block.png)
 
-*Figure 2: Top-level block diagram of `uart_core` (generated with Graphviz from report/figs/block.dot).*
+*Figure 1: Top-level block diagram of `uart_core` (generated with Graphviz from report/figs/block.dot).*
 
-The TX and RX have separate baud generators. This lets the low-power mode stop one without the other, and it lets the receiver re-phase its counter on every start bit. Each optional block sits in a `generate if (X != 0)` section. When a feature is off, its logic is not elaborated at all, which section 7 confirms.
+The TX and RX have separate baud generators. This lets the low-power mode stop one without the other, and it lets the receiver re-phase its counter on every start bit. Each optional block sits in a `generate if (X != 0)` section, so a disabled feature is not elaborated.
 
-### 2.1 Parameters and interface
+![UART frame](figs/frame.png)
+
+*Figure 2: Frame format (0xA5, 8E1) with the mid-bit sample points used by my receiver.*
+
+### 6.1 Parameters and interface
 
 | Parameter | Default | Meaning |
 |---|---|---|
@@ -64,9 +86,9 @@ The TX and RX have separate baud generators. This lets the low-power mode stop o
 | mon_clr, mon_frames, mon_parity, mon_framing, mon_corr, mon_uncorr | in/out | monitor counters (16-bit, saturating) |
 | mon_drift_last, mon_drift_max, mon_health | out | edge drift in 1/16 bit, health 0-100 |
 
-## 3. Module design
+## 7. Design/Algorithm
 
-### 3.1 Baud generator (`uart_baud_gen.v`)
+### Step 1 – Baud generator (`uart_baud_gen.v`)
 
 The baud generator is a counter that runs from 0 to `divisor-1` and gives a one-clock `tick`. The tick rate is 16 times the baud rate, so `divisor = f_clk / (16 * baud)`. For 50 MHz and 115200 baud this is 27.13, which rounds to 27 (+0.47% error).
 
@@ -77,7 +99,7 @@ There are two control inputs:
 
 **Check:** `tb_baud.v` measured the tick period for divisors 4, 27, 163 and 326 over 50 periods each, and also checked `clr`. Result: 201 checks, 0 errors (`logs/baud_gen.log`).
 
-### 3.2 Transmitter (`uart_tx.v`)
+### Step 2 – Transmitter (`uart_tx.v`)
 
 ![TX FSM](figs/fsm_tx.png)
 
@@ -85,7 +107,7 @@ There are two control inputs:
 
 The TX has five states: IDLE, START, DATA, PAR and STOP. Every bit lasts 16 ticks. The parity bit is the XOR of the data, inverted for odd parity. When `tx_start` is accepted, the byte and the parity mode are latched, so changing the inputs mid-frame does nothing. `tx_busy` is simply `state != IDLE`, and `tx_done` pulses for one clock when STOP finishes.
 
-### 3.3 Receiver (`uart_rx.v`)
+### Step 3 – Receiver (`uart_rx.v`)
 
 ![RX FSM](figs/fsm_rx.png)
 
@@ -96,7 +118,7 @@ The TX has five states: IDLE, START, DATA, PAR and STOP. Every bit lasts 16 tick
 - **Parity and framing.** The parity bit is checked against the XOR of the data. `parity_err` is raised together with `rx_valid`, so the byte is still delivered. If the stop bit is sampled low, the RX flags `frame_err`, does not raise `rx_valid`, and goes to BREAK. It stays in BREAK until the line returns high, so a long break is not decoded as a stream of 0x00 bytes.
 - **Edge drift.** When a data-bit edge arrives inside the frame, the current tick count minus 8 tells how early or late the edge was, in 1/16-bit units. The line monitor uses this value.
 
-### 3.4 Auto-baud (`uart_autobaud.v`)
+### Step 4 – Auto-baud (`uart_autobaud.v`)
 
 ![Auto-baud FSM](figs/fsm_abd.png)
 
@@ -104,7 +126,7 @@ The TX has five states: IDLE, START, DATA, PAR and STOP. Every bit lasts 16 tick
 
 The character 0x55 sent as 8N1 has a falling edge every 2 bit-times. These are the start bit, then d1, d3, d5 and d7. From the 1st to the 5th falling edge is exactly 8 bit-times, which is 128 ticks. The block counts the clocks T between those two edges and computes `divisor = (T + 64) >> 7` (division by 128 with rounding). Measuring over 8 bits instead of 1 averages out the synchronizer jitter. While the block is busy, the RX is held idle so it does not decode the sync character. If the counter overflows, the block gives `lock_err`.
 
-### 3.5 SECDED(13,8) (`uart_secded_enc/dec`, `uart_ecc_tx/rx`)
+### Step 5 – SECDED(13,8) (`uart_secded_enc/dec`, `uart_ecc_tx/rx`)
 
 The code uses Hamming positions 1-12:
 
@@ -120,7 +142,7 @@ The decoder handles three cases:
 
 A 13-bit codeword does not fit in one 8-bit frame. It is therefore sent as two frames: `cw[7:0]`, then `{000, cw[12:8]}`. The ECC RX pairs the frames. If the second frame does not arrive within 512 x divisor clocks, it drops the half codeword and reports `dropped`.
 
-### 3.6 Low-power mode
+### Step 6 – Low-power mode
 
 With `LOWPWR_EN=1`:
 
@@ -129,7 +151,7 @@ With `LOWPWR_EN=1`:
 
 The RX wakes directly on the synchronized low level, not on a tick, so no start edge is missed. The design never touches the clock itself. Only flop enables are used, which is safe on an FPGA and is what a clock-gating cell would do in ASIC flow.
 
-### 3.7 Line monitor (`uart_linemon.v`)
+### Step 7 – Line monitor (`uart_linemon.v`)
 
 The monitor has 16-bit saturating counters for frames, parity errors, framing errors, ECC corrected and ECC uncorrectable. It also keeps `drift_last` and `drift_max`, the largest absolute edge drift seen. Every 32 frames it computes a health score:
 
@@ -137,7 +159,7 @@ The monitor has 16-bit saturating counters for frames, parity errors, framing er
 
 A drift of up to 2/16 bit is treated as normal jitter, because the synchronizer alone gives ±1 tick.
 
-## 4. Verification plan
+### Step 8 – Verification plan
 
 ![TB architecture](figs/tb_arch.png)
 
@@ -156,9 +178,15 @@ A drift of up to 2/16 bit is treated as normal jitter, because the synchronizer 
 
 The random tests use my own xorshift32 generator, seeded by `+SEED`. The seeds were 1, 42 and 2026. The line BFM generates bit times in real nanoseconds, independent of the DUT clock. That makes it possible to run the line at, for example, 1.08 times the DUT's baud rate to test mismatch.
 
-## 5. Results
+## 8. Implementation Tool
 
-### 5.1 Baud generator and loopback
+Verilog / SystemVerilog / FPGA / Other
+
+Selected: Verilog-2005 RTL and SystemVerilog testbenches and assertions. Icarus Verilog 12 for the small directed tests (`tb_baud`, `tb_loopback`, `tb_power`); Verilator 5.032 with `--assert` for the randomized, feature and edge-case testbenches and all SVA; Yosys 0.52 for generic and iCE40 synthesis; nextpnr-ice40 for place and route and the Fmax estimate; GTKWave 3.3.121 for viewing waveforms; Python/matplotlib for plots and the toggle counter. Everything runs from the `Makefile` (`make all`), and GitHub Actions runs the same targets on every push.
+
+## 9. Results
+
+### 9.1 Baud generator and loopback
 
 - `BAUD_TEST checks=201 errors=0 -> PASS`
 - Loopback: none 256/256, even 256/256, odd 256/256. Including 4 extra frames, that is `frames_checked=772 pass=772 fail=0 -> PASS`.
@@ -175,7 +203,7 @@ The random tests use my own xorshift32 generator, seeded by `+SEED`. The seeds w
 
 *Figure 9: One 8E1 frame from the same VCD.*
 
-### 5.2 Randomized testbench (tb_uart_rand.sv, DIV=16, 50 MHz)
+### 9.2 Randomized testbench (tb_uart_rand.sv, DIV=16, 50 MHz)
 
 | Test | Seed 1 | Seed 42 | Seed 2026 |
 |---|---|---|---|
@@ -194,7 +222,7 @@ The same three seeds with `LOWPWR_EN=1 LINEMON_EN=1` also passed 12/12. At ±8% 
 
 T7 for seed 2026 shows 201 frames because of how the test counts. When the random reset lands after the mid-stop sample, the byte has already been delivered correctly. The test counts that byte as sent. Before I fixed this accounting, seed 2026 failed with "ok=201 for 200 frames". That was a testbench bug, not an RTL bug.
 
-### 5.3 Auto-baud (F1)
+### 9.3 Auto-baud (F1)
 
 The test sends 0x55, waits for lock, and then sends 10-40 random bytes at the same baud. The bauds were 2400-921600 at 50, 100 and 133.3 MHz.
 
@@ -214,7 +242,7 @@ The locked divisor was always the nearest integer to the ideal value: |div-ideal
 
 *Figure 10: Rate error after lock.*
 
-### 5.4 SECDED (F2)
+### 9.4 SECDED (F2)
 
 The test sent 1500 random bytes per seed. A fork process flipped random line bits: no flip, one bit, or two bits in the same codeword.
 
@@ -226,7 +254,7 @@ The test sent 1500 random bytes per seed. A fork process flipped random line bit
 
 The monitor's corr and uncorr counters matched these numbers exactly, for example corr=621 and uncorr=290 for seed 1.
 
-### 5.5 Low power (F3): toggle-count proxy
+### 9.5 Low power (F3): toggle-count proxy
 
 `tb_power.v` sends 40 bytes, each followed by about 20 frame-times of idle, at divisor 27 (50 MHz, 115200 baud). `scripts/vcd_toggles.py` counts bit flips per signal, excluding clk, and splits them into idle and active periods using a marker signal in the testbench.
 
@@ -245,7 +273,7 @@ With low power on, idle activity drops by about 5 orders of magnitude, and total
 
 *Figure 12: In power_lp1.vcd, the ticks run only around frames.*
 
-### 5.6 Line monitor (F4), seed 1, 50 MHz
+### 9.6 Line monitor (F4), seed 1, 50 MHz
 
 | Scenario | Frames | Framing err | drift_max (1/16 bit) | Health |
 |---|---|---|---|---|
@@ -258,7 +286,7 @@ With low power on, idle activity drops by about 5 orders of magnitude, and total
 
 For the noise case, the injected error counts, the observed error pulses and the monitor counters agreed exactly for all three seeds (seed 42: 45/24, seed 2026: 40/17). The health score comes out as a reasonable early-warning signal, because drift rises before actual errors appear.
 
-### 5.7 Edge-case testbench (tb_edge.sv)
+### 9.7 Edge-case testbench (tb_edge.sv)
 
 `make edge` runs tb_edge with divisor 1, 2, 3, 16 and 255 (all groups) and 65535 (back-to-back groups only). All six runs ended `RESULT tb_edge ... : PASS (0 failing groups, 0 errors)` (`logs/edge_div*.log`). Groups in each full run:
 
@@ -283,7 +311,7 @@ Waveforms from a traced run at DIV=4 (`make waves_err`, `waves/tb_edge_err.vcd`)
 
 *Figure 15: 0xC9 with stop bit 0 and the line held low; frame_err pulses, no rx_valid.*
 
-### 5.8 GTKWave screenshots
+### 9.8 GTKWave screenshots
 
 These are real screenshots of GTKWave 3.3.121 with the saved VCDs open, not plots. Each view has a save file in `waves/` (signals, hex radix for buses, zoom and marker), so it can be reopened with `gtkwave <vcd> <gtkw>`. `make gtkwave_shots` regenerates the VCDs and the screenshots (it needs an X display, or run it under `xvfb-run`). `waves/tb_edge_err.vcd` is not committed (8.7 MB); `make waves_err` recreates it.
 
@@ -321,7 +349,7 @@ The injected-bug run (`make bug_demo`, `logs/bug_demo.log`) stops at 1.11 µs wi
 
 *Figure G6: GTKWave on Windows 11 at the B2 failure (tb_edge_bug_rxmid.vcd, simulated with Verilator 5.032 on Linux).*
 
-## 6. Assertions (SVA)
+### 9.9 Assertions (SVA)
 
 `sva/uart_sva.sv` is bound into the DUT. The table gives antecedent hit counts for tb_uart_rand, seed 1. For the feature assertions, the counts come from tb_features, seed 1, 50 MHz.
 
@@ -357,9 +385,28 @@ The injected-bug run (`make bug_demo`, `logs/bug_demo.log`) stops at 1.11 µs wi
 
 The negative tests show that the assertions are actually being evaluated, not passing vacuously.
 
-## 7. Synthesis (Yosys 0.52, nextpnr-ice40)
+## 10. Quantitative Performance
 
-I used two flows:
+| Parameter | Base core (all `*_EN=0`) | All features enabled |
+|---|---|---|
+| Fmax (nextpnr-ice40, HX8K) | 141.78 MHz | 73.87 MHz |
+| iCE40 LUT4 / DFF | 174 / 88 | 585 / 318 |
+| Generic cells / logic depth | 889 / 25 gates | 2698 / 31 gates |
+| Random TB (3 seeds) | 12/12 groups PASS per seed | 12/12 PASS per seed with `LOWPWR_EN=1 LINEMON_EN=1` |
+| Feature TB (auto-baud, ECC, monitor) | – | 9/9 runs PASS (3 seeds × 3 clocks) |
+| Injected bugs caught by SVA | 4/4 | not run separately |
+
+| Parameter | `LOWPWR_EN=0` | `LOWPWR_EN=1` |
+|---|---|---|
+| Idle toggles (VCD, clock excluded) | 15,206,486 | 127 |
+| Active toggles | 802,085 | 777,894 |
+| Bytes received | 40/40 | 40/40 |
+
+Both configurations use `DIV_W=16` and parity support. Synthesis numbers are from `logs/synth_summary.log`. The negative tests ran on the testbenches' default (base) configuration. Toggle counts are an activity proxy, not a power measurement. Loopback (772/772) and the edge-case runs (6/6) were done on the base core.
+
+### 10.1 Synthesis per feature
+
+I used three flows:
 
 1. **Generic:** `synth -flatten; abc -g cmos2`. This gives NAND/NOR/NOT gates plus flops. Logic depth comes from `ltp -noff`, which is the longest path in cells, flop to flop.
 2. **FPGA:** `synth_ice40`, to get a realistic count of LUT4 cells.
@@ -393,7 +440,25 @@ Observations:
 - Logic depth is a gate count, not a delay. The Fmax column is the measured iCE40 estimate: the base core reaches about 142 MHz, while auto-baud and the line monitor bring it down to about 74-76 MHz, so their wide counters/comparators set the critical path. No ASIC STA was done.
 - The removal of parity lowers Fmax (124.60 vs 141.78 MHz) even though it removes logic; place-and-route results vary with the netlist and seed, so small Fmax differences should not be over-read.
 
-## 8. Limitations
+## 11. Engineering Justification
+
+**16x oversampling with mid-bit sampling.** Sampling once per bit at the middle gives about ±50% of a bit of margin, which is enough for the ±2-3% mismatch I tested. 16 ticks per bit lets the receiver find the middle within 1/16 bit and also gives the drift measurement used by the line monitor. A lower ratio (for example 8x) would make the counters smaller but would give coarser drift and less glitch rejection.
+
+**Separate TX and RX baud generators.** One shared generator would be smaller, but the RX needs to re-phase its counter on every start edge, and the low-power mode needs to stop each side on its own.
+
+**Parameters with generate blocks instead of always-on features.** The synthesis table shows why: all features together cost 585 LUT4 against 174 for the base core, and the Fmax estimate drops from 141.78 to 73.87 MHz. A user who only needs a plain UART should not pay for that.
+
+**Auto-baud over 8 bit-times.** Measuring the 1st to 5th falling edge of 0x55 (128 ticks) instead of a single bit averages out the ±1 clock synchronizer jitter. The locked divisor was the nearest integer to the ideal value at all 24 baud/clock points.
+
+**SECDED over two frames.** Keeping the 8-bit frame means the line stays a normal UART. The cost is half the throughput, which is acceptable for the noisy-line case this feature is for.
+
+**Clock enables instead of gating the clock.** Gating the clock in RTL is unsafe on an FPGA. Using flop enables is safe and drops idle toggles from 15,206,486 to 127 in my test.
+
+**Verilator for SVA, Icarus for small tests.** Verilator 5.032 runs the concurrent assertions with `--assert` and is fast enough for the long randomized runs. Icarus is kept for the simple tests because it also runs on Windows, so those can be checked on my laptop.
+
+**Negative tests.** An assertion that never fails proves nothing. Each of the four injected bugs was caught by a different assertion (A5, A2, B1b, B2), which shows they are actually evaluated.
+
+## 12. Limitations
 
 - Only 8 data bits and 1 stop bit are supported, with no FIFO and no RTS/CTS flow control.
 - Auto-baud needs exactly 0x55 as 8N1, and its accuracy is limited by integer divisors at high baud/clock ratios: 0/40 bytes at 921600 baud with a 50 MHz clock.
@@ -403,7 +468,7 @@ Observations:
 - All verification is simulation. There was no formal verification, no gate-level simulation and no FPGA hardware test. Coverage is measured as test-case counts and assertion hit counts, not as tool-collected functional coverage.
 - The health score formula is my own heuristic.
 
-## 9. Future work
+## 13. Proposed Improvement
 
 - TX/RX FIFOs and a bus wrapper (APB or Wishbone).
 - Fractional baud divisor, to fix the high-baud quantization problem.
@@ -411,19 +476,9 @@ Observations:
 - An FPGA demo on an iCE40 board.
 - Proper functional covergroups.
 
-## 10. Conclusion
+## 14. Conclusion
 
-The UART core works as designed, as the saved logs show:
-
-- 772/772 loopback bytes across the three parity modes;
-- 12/12 random test groups for three seeds in two configurations;
-- 6/6 edge-case runs (divisor 1 to 65535, reset in every TX/RX state, malformed frames);
-- auto-baud locked to the nearest divisor at every point tested;
-- SECDED corrected every single flip and detected every double flip;
-- the low-power mode cut idle switching activity to almost nothing;
-- the line monitor counters matched the injected errors exactly.
-
-The assertions caught all four deliberately injected bugs. With every feature enabled, the core takes 585 iCE40 LUTs and reaches 73.87 MHz on iCE40 HX8K, compared with 174 LUTs and 141.78 MHz for the base core.
+A configurable UART core was written in Verilog and verified in simulation. The logs show 772/772 loopback bytes across three parity modes, 12/12 random test groups for three seeds in two configurations, 6/6 edge-case runs (divisor 1 to 65535, reset in every TX/RX state, malformed frames), auto-baud locking to the nearest divisor at every point tested, SECDED correcting every single flip and detecting every double flip, and line-monitor counters that matched the injected errors exactly. The assertions caught all four injected bugs. The low-power mode cut idle switching activity from 15,206,486 to 127 toggles. With every feature enabled the core takes 585 iCE40 LUT4 and reaches an estimated 73.87 MHz on iCE40 HX8K, compared with 174 LUT4 and 141.78 MHz for the base core. These results are from simulation and synthesis only; the core has not been tested on hardware.
 
 ## Appendix: how to reproduce
 

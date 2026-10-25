@@ -1,19 +1,66 @@
-# Design and Verification of a Configurable UART IP Core in Verilog with SVA and Yosys Synthesis
+# Design and Verification of a Configurable UART IP Core
 
 [![ci](https://github.com/Srishanth6/Configurable-UART-IP-Core/actions/workflows/ci.yml/badge.svg)](https://github.com/Srishanth6/Configurable-UART-IP-Core/actions/workflows/ci.yml)
 
-## Overview
+Verilog UART core with optional auto-baud, SECDED, low-power and line-monitor features, verified with self-checking testbenches and SVA in Verilator and synthesized with Yosys and nextpnr-ice40. All numbers are copied from the logs in [`logs/`](logs). The full write-up is in [report/UART_IP_Core_Report.pdf](report/UART_IP_Core_Report.pdf).
 
-This project implements a UART IP core in Verilog, written from scratch, with:
+## 1. Title of Problem
 
-- a 16x oversampling baud generator, TX and RX with optional parity;
-- four optional features selected by parameters (auto-baud, Hamming SECDED, low-power clock enables, line-quality monitor);
-- self-checking randomized SystemVerilog testbenches and SVA assertions run in Verilator, including injected-bug tests;
-- Yosys generic and iCE40 synthesis with a nextpnr Fmax estimate.
+Design and verification of a configurable UART IP core in Verilog, with optional auto-baud, SECDED error correction, a low-power mode and a line-quality monitor, checked with SVA assertions and compared by Yosys/nextpnr synthesis.
 
-All numbers below are copied from the logs in [`logs/`](logs). The full write-up is in [report/UART_IP_Core_Report.pdf](report/UART_IP_Core_Report.pdf).
+## 2. Real-Life Application
 
-## Features and Parameters
+Almost every microcontroller, FPGA board, GPS module and Bluetooth module has a UART, and it is usually the first link used to talk to a board (debug console, bootloader, sensor data). In practice the link has problems that a minimal UART does not handle: the two sides may not know each other's baud rate, long or noisy cables flip bits, a battery-powered device wastes power while the line sits idle, and there is no easy way to see that a link is getting worse before bytes are lost. This project builds a UART core where each of these problems is handled by a feature that can be switched on with a parameter, so a small design does not pay for features it does not use.
+
+## 3. Problem Statement
+
+Design a UART transmitter and receiver in synthesizable Verilog with a runtime-programmable baud rate and none/even/odd parity, and add four optional features: auto-baud detection from a 0x55 sync character (`AUTOBAUD_EN`), Hamming SECDED(13,8) protection (`ECC_EN`), clock-enable based low-power idle (`LOWPWR_EN`) and a line-quality monitor (`LINEMON_EN`). The core has to be verified with self-checking testbenches and SVA assertions, the assertions themselves have to be shown to fail on injected bugs, and the cost of each feature has to be measured with synthesis. There is no FPGA board in this project, so all results come from simulation and synthesis tools, and every number in this report is copied from a log in `logs/`.
+
+## 4. Engineering Constraints
+
+- **Frame format:** 1 start bit, 8 data bits (LSB first), optional parity bit, 1 stop bit; line idles high.
+- **Clock and baud:** tested at 50, 100 and 133.3 MHz system clock and 2400 to 921600 baud. The tick is 16x the baud rate, so `divisor = f_clk / (16 * baud)`; divisors 1 to 65535 were tested (`DIV_W=16`).
+- **Baud tolerance:** the receiver has to accept ±2% and ±3% baud mismatch with no bad frames (measured: 0 bad frames in 500 frames each, all three seeds).
+- **Asynchronous input:** `rx` is not synchronous to `clk`, so it needs a synchronizer before any logic.
+- **Area:** a disabled feature must not be synthesized at all.
+- **Timing:** no fixed Fmax target was given. Fmax is reported from nextpnr-ice40 for iCE40 HX8K as an estimate.
+- **Accuracy requirement:** every self-checking test must end with 0 errors, and every injected bug must be caught by an assertion.
+- **Hardware/software limitation:** no FPGA board, so there is no hardware test. Verilator tests ran on Linux (the box and GitHub Actions, Ubuntu 24.04); the Icarus tests and GTKWave were also run on my Windows 11 laptop. No ASIC cell library, so no real area or power numbers.
+
+## 5. RTL / Verification Concepts Required
+
+☑ Finite state machines (TX, RX, auto-baud)  
+☑ 16x oversampling and mid-bit sampling  
+☑ Two-flop synchronizer for an asynchronous input  
+☑ Parity and Hamming SECDED coding  
+☑ Clock-enable based low-power design  
+☑ Parameterized RTL with generate blocks  
+☑ Self-checking testbenches with a scoreboard  
+☑ Seeded randomized stimulus  
+☑ SystemVerilog Assertions (SVA), including negative tests  
+☑ Logic synthesis and FPGA place and route  
+☐ Formal verification  
+☐ Functional coverage (covergroups)  
+☐ Gate-level simulation  
+☐ Other: __________
+
+## 6. Proposed Architecture
+
+Input → Synchronization → Oversampling → FSM → Output
+
+Implemented chain: `tx_start`/`tx_data` → [optional SECDED encoder, two frames] → TX baud generator + TX FSM → `tx` line → `rx` line → 2-flop synchronizer → [optional auto-baud measures 0x55 and sets the divisor] → RX baud generator + RX FSM (mid-bit sampling) → [optional SECDED decoder] → `rx_data`/`rx_valid`, `parity_err`, `frame_err`, with the optional line monitor watching the RX outputs.
+
+![Block diagram](report/figs/block.png)
+
+*Figure 1: Top-level block diagram of `uart_core` (generated with Graphviz from report/figs/block.dot).*
+
+The TX and RX have separate baud generators. This lets the low-power mode stop one without the other, and it lets the receiver re-phase its counter on every start bit. Each optional block sits in a `generate if (X != 0)` section, so a disabled feature is not elaborated.
+
+![UART frame](report/figs/frame.png)
+
+*Figure 2: Frame format (0xA5, 8E1) with the mid-bit sample points used by my receiver.*
+
+### 6.1 Features and parameters
 
 **Core**
 - 16x oversampling baud generator with a runtime-programmable divisor (`DIV_W` bits)
@@ -29,7 +76,7 @@ All numbers below are copied from the logs in [`logs/`](logs). The full write-up
 | `LOWPWR_EN` | Clock-enable gating of the baud counters, waking on the start edge |
 | `LINEMON_EN` | Line-quality monitor: error counters, bit-timing drift (1/16 bit), health score 0-100 |
 
-### Parameters and ports (`uart_core`)
+#### Parameters and ports (`uart_core`)
 
 | Parameter | Default | Range / meaning |
 |---|---|---|
@@ -52,111 +99,29 @@ All numbers below are copied from the logs in [`logs/`](logs). The full write-up
 | `mon_clr` / `mon_frames`, `mon_parity`, `mon_framing`, `mon_corr`, `mon_uncorr` | in / out | 1 / 16 | line-monitor clear and counters |
 | `mon_drift_last`, `mon_drift_max`, `mon_health` | out | 5 (signed), 4, 7 | bit-edge drift (1/16 bit) and health 0-100 |
 
-## Architecture
+## 7. Design/Algorithm
 
-```
-            divisor / div_active (auto-baud)
-                    |
-         +----------+-----------+
-         |                      |
-   uart_baud_gen (TX)     uart_baud_gen (RX)      LOWPWR_EN: en gated by busy
-         | tx_tick              | rx_tick
- tx_start/tx_data          rx --+--> [ABD mux] --> uart_rx --> rx_data/rx_valid
-   --> [ECC_EN: uart_ecc_tx]                        |  parity_err/frame_err
-   --> uart_tx --> tx                   [ECC_EN: uart_ecc_rx + secded_dec]
-                                        [LINEMON_EN: uart_linemon -> mon_*]
-                   [AUTOBAUD_EN: uart_autobaud measures 0x55 -> abd_div]
-```
+- **Baud generator:** counter from 0 to `divisor-1` giving a 16x tick; `clr` re-phases it on a start edge, `en` freezes it in low-power mode.
+- **TX:** IDLE, START, DATA, PAR, STOP; 16 ticks per bit; byte and parity mode latched on `tx_start`.
+- **RX:** 2-flop synchronizer, start bit re-checked 8 ticks after the falling edge (glitch rejection), then one sample every 16 ticks at mid-bit; `frame_err` goes to BREAK until the line returns high.
+- **Auto-baud:** counts clocks T from the 1st to the 5th falling edge of 0x55 (8 bit-times) and sets `divisor = (T + 64) >> 7`.
+- **SECDED(13,8):** Hamming code plus overall parity, sent as two frames; corrects 1-bit and detects 2-bit errors.
+- **Low power:** flop enables on the baud counters, RX wakes on the synchronized low level.
+- **Line monitor:** saturating error counters, edge drift in 1/16 bit, health score 0-100 every 32 frames.
 
-![Block diagram](report/figs/block.png)
-
-![UART frame](report/figs/frame.png)
-
-### TX FSM
 ![TX FSM](report/figs/fsm_tx.png)
 
-### RX FSM
 ![RX FSM](report/figs/fsm_rx.png)
 
-### Auto-baud FSM
 ![Auto-baud FSM](report/figs/fsm_abd.png)
 
-## Project Structure
+## 8. Implementation Tool
 
-```text
-Configurable-UART-IP-Core/
-├── .github/workflows/ci.yml   # GitHub Actions: builds Verilator 5.032, runs make all
-├── rtl/                       # Verilog design (uart_core.v is the top)
-│   ├── uart_core.v
-│   ├── uart_baud_gen.v
-│   ├── uart_tx.v
-│   ├── uart_rx.v
-│   ├── uart_autobaud.v
-│   ├── uart_ecc_tx.v / uart_ecc_rx.v
-│   ├── uart_secded_enc.v / uart_secded_dec.v
-│   └── uart_linemon.v
-├── sva/
-│   ├── uart_sva.sv            # A1-A12
-│   └── uart_sva_ext.sv        # B1-B4
-├── tb/
-│   ├── tb_baud.v, tb_loopback.v, tb_power.v          # Icarus Verilog
-│   └── tb_uart_rand.sv, tb_features.sv, tb_edge.sv   # Verilator
-├── scripts/                   # vbuild.sh, neg_tests.sh, synth_all.sh, vcd_toggles.py, err_waves.py, gtkwave_shots.sh
-├── waves/                     # small VCDs and GTKWave save files (*.gtkw)
-├── syn/out/                   # Yosys stats per configuration
-├── logs/                      # every log the results come from
-├── report/                    # report (.md/.docx/.pdf), figures and generator scripts
-├── Makefile
-└── README.md
-```
+Verilog / SystemVerilog / FPGA / Other
 
-## Simulation and Verification
+Selected: Verilog-2005 RTL and SystemVerilog testbenches and assertions. Icarus Verilog 12 for the small directed tests (`tb_baud`, `tb_loopback`, `tb_power`); Verilator 5.032 with `--assert` for the randomized, feature and edge-case testbenches and all SVA; Yosys 0.52 for generic and iCE40 synthesis; nextpnr-ice40 for place and route and the Fmax estimate; GTKWave 3.3.121 for viewing waveforms; Python/matplotlib for plots and the toggle counter. Everything runs from the `Makefile` (`make all`), and GitHub Actions runs the same targets on every push.
 
-![Testbench architecture](report/figs/tb_arch.png)
-
-| Test | Result | Log |
-|---|---|---|
-| Baud generator tick period (divisors 4/27/163/326, plus clr) | 201 checks, 0 errors | `logs/baud_gen.log` |
-| Loopback: 256 bytes × none/even/odd parity | **772/772 PASS** | `logs/loopback.log` |
-| Random TB, seeds 1, 42, 2026 (base config) | **12/12 groups PASS** for each seed | `logs/rand_seed*.log` |
-| Random TB, same seeds, `LOWPWR_EN=1 LINEMON_EN=1` | **12/12 PASS** for each seed | `logs/rand_lp_mon_seed*.log` |
-| Feature TB, 3 seeds × 50/100/133.3 MHz | **9/9 runs PASS** | `logs/features_seed*_clk*.log` |
-| Edge cases, divisor = 1, 2, 3, 16, 255 (full set) and 65535 (back-to-back only) | **6/6 runs PASS** | `logs/edge_div*.log` |
-| Negative tests (4 injected bugs) | **All 4 caught by SVA**, exit code 134 | `logs/negative_tests.log` |
-
-Edge-case testbench `tb/tb_edge.sv` (added after review), groups per run:
-- E1 divisor boundary values: 1, 2, 3, 16, 255, 65535 (the 16-bit maximum);
-- E2 reset asserted in every TX state (START, DATA, PARITY, STOP), then a good frame must follow;
-- E3 reset asserted in every RX state (START, DATA, PARITY, STOP, BREAK), no byte may come out, then recovery;
-- E4 back-to-back frames (`tx_start` held) in all four `parity_mode` codes 00/01/10/11;
-- E5 malformed frames: start glitches of 1 clock up to just under half a bit (rejected), bad stop bit in all four parity codes (`frame_err`, no `rx_valid`), wrong parity bit for even and odd.
-
-### Assertions
-
- `sva/uart_sva.sv` has A1-A12 (TX idle/frame length/done/start bit, RX pulses and error flags, low-power, ECC, auto-baud, monitor). `sva/uart_sva_ext.sv` adds:
-- **B1** baud timing: every tick comes exactly `divisor` clocks after the previous one (B1b: never later);
-- **B2** RX mid-bit sampling: start bit sampled 8 ticks after detection, data bit n at 8+16(n+1) ticks;
-- **B3** reset: TX/RX FSMs idle, `tx`=1 and no `rx_valid`/`parity_err`/`frame_err` while reset is held and at release;
-- **B4** parameter/divisor boundaries: `DIV_W` in 1..32 at elaboration, `divisor != 0` at run time.
-
-Antecedent hit counts are printed in every log (e.g. DIV=16: B1 29,873, B2 start 160, B2 data 1,240, B3 13 reset cycles).
-
-The random TB (seed 1) covers:
-- 3000 random frames;
-- 500 back-to-back frames;
-- parity and stop-bit error injection;
-- ±2% and ±3% baud mismatch with 0 bad frames;
-- ±8% baud mismatch, where 281 and 278 of 300 frames had errors, as expected;
-- start-bit glitch rejection;
-- 50 resets in the middle of a frame.
-
-### Injected-bug (negative) tests
-- `+define+INJECT_BUG` stretches `rx_valid` to 2 cycles. It was caught by **A5** at 69.55 µs.
-- `+define+INJECT_BUG_TX` makes the stop bit one tick short. It was caught by **A2**: "tx_busy length 2544, expected 2560".
-- `+define+INJECT_BUG_BAUD` makes the baud counter off by one. It was caught by **B1b** at 330 ns: "no baud tick for 5 clocks (divisor=4)".
-- `+define+INJECT_BUG_RXMID` starts RX sampling 3/16 bit late. It was caught by **B2** at 1.11 µs: "start bit sampled at tick 11, expected 8".
-
-## Run on Linux / macOS
+### Run on Linux / macOS
 
 Requirements: Verilator 5.032 (the version all logs were made with), Icarus Verilog 12, Yosys 0.5x, Python 3 with matplotlib and python-docx, Graphviz, and LibreOffice (only for the PDF). nextpnr-ice40 is optional (Fmax column).
 
@@ -179,7 +144,7 @@ make report               # figures + PDF
 
 CI (`.github/workflows/ci.yml`) installs the tools on Ubuntu 24.04 and runs the same targets on every push. Ubuntu 24.04's apt Verilator is 5.020, so CI builds Verilator v5.032 from source once, caches it, and fails if `verilator --version` is not 5.032.
 
-## Run on Windows
+### Run on Windows
 
 1. Install Icarus Verilog (which includes GTKWave) and make sure `iverilog`, `vvp` and `gtkwave` are on PATH.
 2. From the repository root (Command Prompt or PowerShell):
@@ -200,18 +165,64 @@ CI (`.github/workflows/ci.yml`) installs the tools on Ubuntu 24.04 and runs the 
 
 The loopback run should print `LOOPBACK_TEST frames_checked=772 pass=772 fail=0 -> PASS`. The Verilator testbenches (`tb_uart_rand`, `tb_features`, `tb_edge`) and the SVA files need Verilator 5.032 and the Makefile, so run them on Linux or WSL. Saved VCDs from those runs (for example `waves/tb_edge_bug_rxmid.vcd`) can still be opened in GTKWave on Windows.
 
-## Waveforms
+## 9. Results
 
-### Waveforms (from `waves/tb_loopback.vcd`)
+![Testbench architecture](report/figs/tb_arch.png)
+
+| Test | Result | Log |
+|---|---|---|
+| Baud generator tick period (divisors 4/27/163/326, plus clr) | 201 checks, 0 errors | `logs/baud_gen.log` |
+| Loopback: 256 bytes × none/even/odd parity | **772/772 PASS** | `logs/loopback.log` |
+| Random TB, seeds 1, 42, 2026 (base config) | **12/12 groups PASS** for each seed | `logs/rand_seed*.log` |
+| Random TB, same seeds, `LOWPWR_EN=1 LINEMON_EN=1` | **12/12 PASS** for each seed | `logs/rand_lp_mon_seed*.log` |
+| Feature TB, 3 seeds × 50/100/133.3 MHz | **9/9 runs PASS** | `logs/features_seed*_clk*.log` |
+| Edge cases, divisor = 1, 2, 3, 16, 255 (full set) and 65535 (back-to-back only) | **6/6 runs PASS** | `logs/edge_div*.log` |
+| Negative tests (4 injected bugs) | **All 4 caught by SVA**, exit code 134 | `logs/negative_tests.log` |
+
+Edge-case testbench `tb/tb_edge.sv` (added after review), groups per run:
+- E1 divisor boundary values: 1, 2, 3, 16, 255, 65535 (the 16-bit maximum);
+- E2 reset asserted in every TX state (START, DATA, PARITY, STOP), then a good frame must follow;
+- E3 reset asserted in every RX state (START, DATA, PARITY, STOP, BREAK), no byte may come out, then recovery;
+- E4 back-to-back frames (`tx_start` held) in all four `parity_mode` codes 00/01/10/11;
+- E5 malformed frames: start glitches of 1 clock up to just under half a bit (rejected), bad stop bit in all four parity codes (`frame_err`, no `rx_valid`), wrong parity bit for even and odd.
+
+#### Assertions
+
+ `sva/uart_sva.sv` has A1-A12 (TX idle/frame length/done/start bit, RX pulses and error flags, low-power, ECC, auto-baud, monitor). `sva/uart_sva_ext.sv` adds:
+- **B1** baud timing: every tick comes exactly `divisor` clocks after the previous one (B1b: never later);
+- **B2** RX mid-bit sampling: start bit sampled 8 ticks after detection, data bit n at 8+16(n+1) ticks;
+- **B3** reset: TX/RX FSMs idle, `tx`=1 and no `rx_valid`/`parity_err`/`frame_err` while reset is held and at release;
+- **B4** parameter/divisor boundaries: `DIV_W` in 1..32 at elaboration, `divisor != 0` at run time.
+
+Antecedent hit counts are printed in every log (e.g. DIV=16: B1 29,873, B2 start 160, B2 data 1,240, B3 13 reset cycles).
+
+The random TB (seed 1) covers:
+- 3000 random frames;
+- 500 back-to-back frames;
+- parity and stop-bit error injection;
+- ±2% and ±3% baud mismatch with 0 bad frames;
+- ±8% baud mismatch, where 281 and 278 of 300 frames had errors, as expected;
+- start-bit glitch rejection;
+- 50 resets in the middle of a frame.
+
+#### Injected-bug (negative) tests
+- `+define+INJECT_BUG` stretches `rx_valid` to 2 cycles. It was caught by **A5** at 69.55 µs.
+- `+define+INJECT_BUG_TX` makes the stop bit one tick short. It was caught by **A2**: "tx_busy length 2544, expected 2560".
+- `+define+INJECT_BUG_BAUD` makes the baud counter off by one. It was caught by **B1b** at 330 ns: "no baud tick for 5 clocks (divisor=4)".
+- `+define+INJECT_BUG_RXMID` starts RX sampling 3/16 bit late. It was caught by **B2** at 1.11 µs: "start bit sampled at tick 11, expected 8".
+
+### Waveforms
+
+#### Waveforms (from `waves/tb_loopback.vcd`)
 ![Loopback](report/figs/wave_loopback.png)
 ![Start bit zoom](report/figs/wave_zoom.png)
 
-### Error waveforms (from `waves/tb_edge_err.vcd`, `make waves_err`, DIV=4)
+#### Error waveforms (from `waves/tb_edge_err.vcd`, `make waves_err`, DIV=4)
 ![TX/RX timing](report/figs/wave_txrx_timing.png)
 ![Parity error](report/figs/wave_parity_err.png)
 ![Framing error](report/figs/wave_frame_err.png)
 
-### GTKWave screenshots
+#### GTKWave screenshots
 
 These are real screenshots of GTKWave 3.3.121 with the saved VCDs open, not plots. Each view has a save file in `waves/` (signals, hex radix for buses, zoom and marker), so it can be reopened with `gtkwave <vcd> <gtkw>`. `make gtkwave_shots` regenerates the VCDs and the screenshots (it needs an X display, or run it under `xvfb-run`). `waves/tb_edge_err.vcd` is not committed (8.7 MB); `make waves_err` recreates it.
 
@@ -249,7 +260,7 @@ The injected-bug run (`make bug_demo`, `logs/bug_demo.log`) stops at 1.11 µs wi
 
 *Figure G6: GTKWave on Windows 11 at the B2 failure (tb_edge_bug_rxmid.vcd, simulated with Verilator 5.032 on Linux).*
 
-## Feature Results
+### Feature results
 
 **Auto-baud.** The test locks on 0x55 and then checks the bytes that follow. The locked divisor is always the nearest integer to the ideal value.
 
@@ -291,7 +302,26 @@ The injected-bug run (`make bug_demo`, `logs/bug_demo.log`) stops at 1.11 µs wi
 
 In the noise test, the monitor counters matched the injected errors exactly (45 parity and 26 framing errors for seed 1).
 
-## Generic Synthesis Comparison
+## 10. Quantitative Performance
+
+| Parameter | Base core (all `*_EN=0`) | All features enabled |
+|---|---|---|
+| Fmax (nextpnr-ice40, HX8K) | 141.78 MHz | 73.87 MHz |
+| iCE40 LUT4 / DFF | 174 / 88 | 585 / 318 |
+| Generic cells / logic depth | 889 / 25 gates | 2698 / 31 gates |
+| Random TB (3 seeds) | 12/12 groups PASS per seed | 12/12 PASS per seed with `LOWPWR_EN=1 LINEMON_EN=1` |
+| Feature TB (auto-baud, ECC, monitor) | – | 9/9 runs PASS (3 seeds × 3 clocks) |
+| Injected bugs caught by SVA | 4/4 | not run separately |
+
+| Parameter | `LOWPWR_EN=0` | `LOWPWR_EN=1` |
+|---|---|---|
+| Idle toggles (VCD, clock excluded) | 15,206,486 | 127 |
+| Active toggles | 802,085 | 777,894 |
+| Bytes received | 40/40 | 40/40 |
+
+Both configurations use `DIV_W=16` and parity support. Synthesis numbers are from `logs/synth_summary.log`. The negative tests ran on the testbenches' default (base) configuration. Toggle counts are an activity proxy, not a power measurement. Loopback (772/772) and the edge-case runs (6/6) were done on the base core.
+
+### 10.1 Synthesis per feature
 
 All feature configs use `DIV_W=16 PARITY_SUPPORT=1`, so each row differs from *Base, DIV_W=16* only by the feature(s) named.
 
@@ -315,7 +345,7 @@ What each column is:
 
 ![LUTs](report/figs/synth_luts.png)
 
-### Interpretation
+#### Interpretation
 
 - The base core (`DIV_W=16`) maps to 174 LUT4 and 88 DFF on iCE40, with a nextpnr estimate of 141.78 MHz.
 - Narrowing the divisor to `DIV_W=8` cuts generic cells from 889 to 621 and logic depth from 25 to 17 gates.
@@ -323,31 +353,74 @@ What each column is:
 - With all features enabled the core uses 585 LUT4 and 318 DFF, with an Fmax estimate of 73.87 MHz.
 - Cell counts and logic depth are generic Yosys statistics, not area or delay. Only the Fmax column is a timing number, and it is a place-and-route estimate.
 
-## Limitations
+## 11. Engineering Justification
 
-- Supports 8 data bits and 1 stop bit only, with no FIFO or flow control.
-- Auto-baud accuracy is limited by the integer divisor at high baud-to-clock ratios.
-- ECC halves the throughput, and a lost frame drops the byte (it is flagged, not recovered).
-- The power numbers are an RTL toggle-count proxy, not a real power estimate.
-- Verification is simulation only: no formal proofs, gate-level simulation or hardware test.
-- Fmax is an iCE40 place-and-route estimate with unconstrained pins, not a board-level result; there is no ASIC timing.
-- The 65535 divisor run checks back-to-back frames only (the full edge set would take too long at that rate).
-- CI runs on GitHub Actions (Ubuntu 24.04); Windows runs have only been done for the Icarus testbenches.
+**16x oversampling with mid-bit sampling.** Sampling once per bit at the middle gives about ±50% of a bit of margin, which is enough for the ±2-3% mismatch I tested. 16 ticks per bit lets the receiver find the middle within 1/16 bit and also gives the drift measurement used by the line monitor. A lower ratio (for example 8x) would make the counters smaller but would give coarser drift and less glitch rejection.
+
+**Separate TX and RX baud generators.** One shared generator would be smaller, but the RX needs to re-phase its counter on every start edge, and the low-power mode needs to stop each side on its own.
+
+**Parameters with generate blocks instead of always-on features.** The synthesis table shows why: all features together cost 585 LUT4 against 174 for the base core, and the Fmax estimate drops from 141.78 to 73.87 MHz. A user who only needs a plain UART should not pay for that.
+
+**Auto-baud over 8 bit-times.** Measuring the 1st to 5th falling edge of 0x55 (128 ticks) instead of a single bit averages out the ±1 clock synchronizer jitter. The locked divisor was the nearest integer to the ideal value at all 24 baud/clock points.
+
+**SECDED over two frames.** Keeping the 8-bit frame means the line stays a normal UART. The cost is half the throughput, which is acceptable for the noisy-line case this feature is for.
+
+**Clock enables instead of gating the clock.** Gating the clock in RTL is unsafe on an FPGA. Using flop enables is safe and drops idle toggles from 15,206,486 to 127 in my test.
+
+**Verilator for SVA, Icarus for small tests.** Verilator 5.032 runs the concurrent assertions with `--assert` and is fast enough for the long randomized runs. Icarus is kept for the simple tests because it also runs on Windows, so those can be checked on my laptop.
+
+**Negative tests.** An assertion that never fails proves nothing. Each of the four injected bugs was caught by a different assertion (A5, A2, B1b, B2), which shows they are actually evaluated.
+
+## 12. Limitations
+
+- Only 8 data bits and 1 stop bit are supported, with no FIFO and no RTS/CTS flow control.
+- Auto-baud needs exactly 0x55 as 8N1, and its accuracy is limited by integer divisors at high baud/clock ratios: 0/40 bytes at 921600 baud with a 50 MHz clock.
+- ECC halves the throughput (two frames per byte), and pairing depends on a timeout, so a lost frame can drop a byte. That is reported as `dropped`, not corrected.
+- The power result is a toggle count from RTL simulation only. It is not a power estimate.
+- Fmax is a nextpnr estimate with unconstrained pins, not a board result.
+- All verification is simulation. There was no formal verification, no gate-level simulation and no FPGA hardware test. Coverage is measured as test-case counts and assertion hit counts, not as tool-collected functional coverage.
 - The health score formula is my own heuristic.
 
-## Key Takeaways
+## 13. Proposed Improvement
 
-- Built a parameterized UART core whose optional features are not synthesized when disabled.
-- Loopback passed 772/772 checks, and the random, feature and edge-case Verilator runs all passed (logs committed).
-- All four injected bugs were caught by the SVA assertions, which shows the assertions can fail.
-- Synthesis shows the cost of each feature: from 174 LUT4 for the base core to 585 LUT4 with all features.
+- TX/RX FIFOs and a bus wrapper (APB or Wishbone).
+- Fractional baud divisor, to fix the high-baud quantization problem.
+- Formal proofs of the SVA with SymbiYosys.
+- An FPGA demo on an iCE40 board.
+- Proper functional covergroups.
 
-## Future Work
+## 14. Conclusion
 
-- Add FIFOs, flow control (RTS/CTS), and configurable data bits and stop bits.
-- Add formal property checking of the SVA assertions (for example with SymbiYosys).
-- Run gate-level simulation and test the core on an iCE40 board.
-- Run ASIC synthesis with a standard-cell library and static timing analysis.
+A configurable UART core was written in Verilog and verified in simulation. The logs show 772/772 loopback bytes across three parity modes, 12/12 random test groups for three seeds in two configurations, 6/6 edge-case runs (divisor 1 to 65535, reset in every TX/RX state, malformed frames), auto-baud locking to the nearest divisor at every point tested, SECDED correcting every single flip and detecting every double flip, and line-monitor counters that matched the injected errors exactly. The assertions caught all four injected bugs. The low-power mode cut idle switching activity from 15,206,486 to 127 toggles. With every feature enabled the core takes 585 iCE40 LUT4 and reaches an estimated 73.87 MHz on iCE40 HX8K, compared with 174 LUT4 and 141.78 MHz for the base core. These results are from simulation and synthesis only; the core has not been tested on hardware.
+
+## Project Structure
+
+```text
+Configurable-UART-IP-Core/
+├── .github/workflows/ci.yml   # GitHub Actions: builds Verilator 5.032, runs make all
+├── rtl/                       # Verilog design (uart_core.v is the top)
+│   ├── uart_core.v
+│   ├── uart_baud_gen.v
+│   ├── uart_tx.v
+│   ├── uart_rx.v
+│   ├── uart_autobaud.v
+│   ├── uart_ecc_tx.v / uart_ecc_rx.v
+│   ├── uart_secded_enc.v / uart_secded_dec.v
+│   └── uart_linemon.v
+├── sva/
+│   ├── uart_sva.sv            # A1-A12
+│   └── uart_sva_ext.sv        # B1-B4
+├── tb/
+│   ├── tb_baud.v, tb_loopback.v, tb_power.v          # Icarus Verilog
+│   └── tb_uart_rand.sv, tb_features.sv, tb_edge.sv   # Verilator
+├── scripts/                   # vbuild.sh, neg_tests.sh, synth_all.sh, vcd_toggles.py, err_waves.py, gtkwave_shots.sh
+├── waves/                     # small VCDs and GTKWave save files (*.gtkw)
+├── syn/out/                   # Yosys stats per configuration
+├── logs/                      # every log the results come from
+├── report/                    # report (.md/.docx/.pdf), figures and generator scripts
+├── Makefile
+└── README.md
+```
 
 ## Resume / LinkedIn Description
 
