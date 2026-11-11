@@ -400,6 +400,7 @@ A configurable UART core was written in Verilog and verified in simulation. The 
 
 ```text
 Configurable-UART-IP-Core/
+├── LICENSE
 ├── .github/workflows/ci.yml   # GitHub Actions: builds Verilator 5.032, runs make all
 ├── rtl/                       # Verilog design (uart_core.v is the top)
 │   ├── uart_core.v
@@ -431,4 +432,4 @@ Designed a configurable UART IP core in Verilog with a 16x oversampling baud gen
 
 ## License
 
-Student project for educational and portfolio demonstration. No licence specified.
+MIT, see [LICENSE](LICENSE). Copyright (c) 2026 B. Srishanth Reddy.
